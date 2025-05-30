@@ -164,7 +164,7 @@ class LeggedRobotCfg(BaseConfig):
         action_scale = 0.25
 
         # decimation: Number of control action updates @ sim DT per policy DT
-        decimation = 5  # 100hz
+        decimation = 10 # 50hz
 
     class sim:
         dt = 0.002  # 1000 Hz
@@ -309,7 +309,7 @@ class LeggedRobotCfgPPO(BaseConfig):
 
         # logging
         save_interval = 100  # check for potential saves every this many iterations
-        experiment_name = 'T1'
+        experiment_name = 'MOSC'
         run_name = ''
         # load and resume
         resume = False

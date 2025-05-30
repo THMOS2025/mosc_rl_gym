@@ -86,11 +86,11 @@
         <body name="Rhip" pos="-0.015 -0.0672 -0.0399" quat="0 0 0.707107 0.707107">
             <inertial pos="0.00046534 -4.8738e-06 -0.043634" quat="0.998704 0.00021969 0.0505891 0.00561917" mass="0.68971" diaginertia="0.000521793 0.000513959 0.000411928" />
             <joint name="b_Rh" pos="0 0 0" axis="0 0 1" />
-            <geom type="mesh" rgba="1 1 1 1" mesh="Rhip" />
+            <geom type="mesh" rgba="1 1 1 1" mesh="Rhip" contype="0" conaffinity="0"/>
             <body name="Rlap" pos="-0.0312 0 -0.0493" quat="0.707107 0 0.707107 0">
                 <inertial pos="0 -0.03086 0.0069068" quat="0.888924 0.458055 0 0" mass="0.12125" diaginertia="9.9252e-05 9.7938e-05 3.1213e-05" />
                 <joint name="Rh_Rl" pos="0 0 0" axis="0 0 -1" />
-                <geom type="mesh" rgba="1 1 1 1" mesh="Rlap" />
+                <geom type="mesh" rgba="1 1 1 1" mesh="Rlap" contype="0" conaffinity="0"/>
                 <body name="Rleg1" pos="0 -0.057 0.032" quat="0 0 0.707107 0.707107">
                     <inertial pos="0.0033299 -0.00182044 -0.0895096" quat="0.927379 0.0234381 -0.0606723 -0.368425" mass="1.39974" diaginertia="0.00599239 0.00589001 0.00101771" />
                     <joint name="Rl_Rl1" pos="0 0 0" axis="0 0 -1" />
@@ -98,15 +98,15 @@
                     <body name="Rleg2" pos="-0.0162 0 -0.1532" quat="0.5 0.5 -0.5 -0.5">
                         <inertial pos="-0.0025189 -0.14339 -0.0055217" quat="0.622039 0.722366 -0.229813 0.196066" mass="0.66458" diaginertia="0.00438581 0.00431472 0.00028574" />
                         <joint name="Rl1_Rl2" pos="0 0 0" axis="0 0 -1" />
-                        <geom type="mesh" rgba="1 1 1 1" mesh="Rleg2" />
+                        <geom type="mesh" rgba="1 1 1 1" mesh="Rleg2" contype="0" conaffinity="0"/>
                         <body name="Rankle" pos="0 -0.2 0.0098">
                             <inertial pos="0.026526 0 -0.0036121" quat="0.323256 0.628892 0.628892 0.323256" mass="0.099798" diaginertia="7.8396e-05 7.63351e-05 2.41339e-05" />
                             <joint name="Rl2_Ra" pos="0 0 0" axis="0 0 -1" />
-                            <geom type="mesh" rgba="1 1 1 1" mesh="Rankle" />
+                            <geom type="mesh" rgba="1 1 1 1" mesh="Rankle" contype="0" conaffinity="0"/>
                             <body name="Rfoot" pos="0.0545 0 -0.026" quat="0.707107 0 0.707107 0">
                                 <inertial pos="0 -0.0165148 0.0227182" quat="0.973791 -0.227447 0 0" mass="0.644241" diaginertia="0.000982839 0.000902925 0.000553376" />
                                 <joint name="Ra_Rf" pos="0 0 0" axis="0 0 1" />
-                                <geom type="mesh" rgba="1 1 1 1" mesh="Rfoot" />
+                                <geom type="mesh" rgba="1 1 1 1" mesh="Rfoot"/>
                             </body>
                         </body>
                     </body>
@@ -116,11 +116,11 @@
         <body name="Lhip" pos="-0.015 0.0672 -0.0399" quat="0 0 0.707107 0.707107">
             <inertial pos="0.00046506 4.8751e-06 0.043645" quat="0.998699 0.00022094 -0.0506725 -0.00563274" mass="0.68953" diaginertia="0.000521464 0.000513649 0.000411857" />
             <joint name="b_Lh" pos="0 0 0" axis="0 0 -1" />
-            <geom type="mesh" rgba="1 1 1 1" mesh="Lhip" />
+            <geom type="mesh" rgba="1 1 1 1" mesh="Lhip" contype="0" conaffinity="0"/>
             <body name="Llap" pos="-0.0312 0 0.0493" quat="0.707107 0 0.707107 0">
                 <inertial pos="0 -0.03086 0.0069068" quat="0.888924 0.458055 0 0" mass="0.12125" diaginertia="9.9252e-05 9.7938e-05 3.1213e-05" />
                 <joint name="Lh_Ll" pos="0 0 0" axis="0 0 -1" />
-                <geom type="mesh" rgba="1 1 1 1" mesh="Llap" />
+                <geom type="mesh" rgba="1 1 1 1" mesh="Llap" contype="0" conaffinity="0"/>
                 <body name="Lleg1" pos="0 -0.057 0.032" quat="0 0 -0.707107 -0.707107">
                     <inertial pos="-0.00334622 -0.00180411 -0.0895144" quat="0.927406 0.0233212 0.0606357 0.368371" mass="1.39974" diaginertia="0.00599321 0.00589066 0.00101782" />
                     <joint name="Ll_Ll1" pos="0 0 0" axis="0 0 -1" />
@@ -128,11 +128,11 @@
                     <body name="Lleg2" pos="0.0162 0 -0.1532" quat="0.5 0.5 0.5 0.5">
                         <inertial pos="0.0025362 -0.14342 -0.0055217" quat="0.622905 0.723389 0.22658 -0.193284" mass="0.66458" diaginertia="0.00438854 0.00431768 0.000284441" />
                         <joint name="Ll1_Ll2" pos="0 0 0" axis="0 0 -1" />
-                        <geom type="mesh" rgba="1 1 1 1" mesh="Lleg2" />
+                        <geom type="mesh" rgba="1 1 1 1" mesh="Lleg2" contype="0" conaffinity="0"/>
                         <body name="Lankle" pos="0 -0.2 0.0098">
                             <inertial pos="-0.026526 0 -0.0036121" quat="0.628892 0.323256 0.323256 0.628892" mass="0.099798" diaginertia="7.8396e-05 7.63351e-05 2.41339e-05" />
                             <joint name="Ll2_La" pos="0 0 0" axis="0 0 -1" />
-                            <geom type="mesh" rgba="1 1 1 1" mesh="Lankle" />
+                            <geom type="mesh" rgba="1 1 1 1" mesh="Lankle" contype="0" conaffinity="0"/>
                             <body name="Lfoot" pos="-0.0545 0 -0.026" quat="0.707107 0 0.707107 0">
                                 <inertial pos="0 -0.0165148 -0.0227182" quat="0.973791 0.227447 0 0" mass="0.644241" diaginertia="0.000982839 0.000902925 0.000553376" />
                                 <joint name="La_Lf" pos="0 0 0" axis="0 0 -1" />
@@ -146,17 +146,17 @@
     </body>
     </worldbody>
 	    <actuator>
-		<motor name="b_Lh_joint" joint="b_Lh" gear="1" ctrllimited="true" ctrlrange="-200 200" />
-		<motor name="b_Rh_joint" joint="b_Rh" gear="1" ctrllimited="true" ctrlrange="-200 200" />
-		<motor name="Lh_Ll_joint" joint="Lh_Ll" gear="1" ctrllimited="true" ctrlrange="-200 200" />
-		<motor name="Rh_Rl_joint" joint="Rh_Rl" gear="1" ctrllimited="true" ctrlrange="-200 200" />
-		<motor name="Ll_Ll1_joint" joint="Ll_Ll1" gear="1" ctrllimited="true" ctrlrange="-200 200" />
-		<motor name="Rl_Rl1_joint" joint="Rl_Rl1" gear="1" ctrllimited="true" ctrlrange="-200 200" />
-		<motor name="Ll1_Ll2_joint" joint="Ll1_Ll2" gear="1" ctrllimited="true" ctrlrange="-200 200" />
-		<motor name="Rl1_Rl2_joint" joint="Rl1_Rl2" gear="1" ctrllimited="true" ctrlrange="-200 200" />
-		<motor name="Ll2_La_joint" joint="Ll2_La" gear="1" ctrllimited="true" ctrlrange="-200 200" />
-		<motor name="Rl2_Ra_joint" joint="Rl2_Ra" gear="1" ctrllimited="true" ctrlrange="-200 200" />
+		<motor name="b_Lh_joint" joint="b_Lh" gear="1" ctrllimited="true" ctrlrange="-200 200" />		
+		<motor name="Lh_Ll_joint" joint="Lh_Ll" gear="1" ctrllimited="true" ctrlrange="-200 200" />		
+		<motor name="Ll_Ll1_joint" joint="Ll_Ll1" gear="1" ctrllimited="true" ctrlrange="-200 200" />		
+		<motor name="Ll1_Ll2_joint" joint="Ll1_Ll2" gear="1" ctrllimited="true" ctrlrange="-200 200" />		
+		<motor name="Ll2_La_joint" joint="Ll2_La" gear="1" ctrllimited="true" ctrlrange="-200 200" />		
 		<motor name="La_Lf_joint" joint="La_Lf" gear="1" ctrllimited="true" ctrlrange="-200 200" />
+		<motor name="b_Rh_joint" joint="b_Rh" gear="1" ctrllimited="true" ctrlrange="-200 200" />
+		<motor name="Rh_Rl_joint" joint="Rh_Rl" gear="1" ctrllimited="true" ctrlrange="-200 200" />
+		<motor name="Rl_Rl1_joint" joint="Rl_Rl1" gear="1" ctrllimited="true" ctrlrange="-200 200" />
+		<motor name="Rl1_Rl2_joint" joint="Rl1_Rl2" gear="1" ctrllimited="true" ctrlrange="-200 200" />
+		<motor name="Rl2_Ra_joint" joint="Rl2_Ra" gear="1" ctrllimited="true" ctrlrange="-200 200" />
 		<motor name="Ra_Rf_joint" joint="Ra_Rf" gear="1" ctrllimited="true" ctrlrange="-200 200" />
 		</actuator>
 		<sensor>

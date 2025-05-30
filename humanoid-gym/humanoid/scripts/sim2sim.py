@@ -38,12 +38,8 @@ from scipy.spatial.transform import Rotation as R
 from humanoid import LEGGED_GYM_ROOT_DIR
 import torch
 
-USD_JOINT_NAMES = ['b_Lh', 'b_Rh', 
-                  'Lh_Ll', 'Rh_Rl',  
-                  'Ll_Ll1', 'Rl_Rl1',
-                  'Ll1_Ll2', 'Rl1_Rl2', 
-                  'Ll2_La', 'Rl2_Ra', 
-                  'La_Lf', 'Ra_Rf']
+USD_JOINT_NAMES = ['b_Lh','Lh_Ll','Ll_Ll1','Ll1_Ll2','Ll2_La','La_Lf', 
+                   'b_Rh','Rh_Rl','Rl_Rl1','Rl1_Rl2','Rl2_Ra','Ra_Rf']
 
 
 
@@ -75,12 +71,7 @@ def quaternion_to_euler_array(quat):
 def get_obs(data,cfg):
     '''Extracts an observation from the mujoco data structure
     '''
-    name_list = ['b_Lh', 'b_Rh',
-                 'Lh_Ll', 'Rh_Rl',
-                 'Ll_Ll1', 'Rl_Rl1', 
-                 'Ll1_Ll2', 'Rl1_Rl2', 
-                 'Ll2_La', 'Rl2_Ra', 
-                 'La_Lf', 'Ra_Rf']
+    name_list = USD_JOINT_NAMES
     q = np.zeros((cfg.env.num_actions), dtype=np.double)
     dq = np.zeros((cfg.env.num_actions), dtype=np.double)
     for i in range(cfg.env.num_actions):
@@ -115,7 +106,8 @@ def run_mujoco(policy, cfg):
     model = mujoco.MjModel.from_xml_path(cfg.sim_config.mujoco_model_path)
     model.opt.timestep = cfg.sim_config.dt
     data = mujoco.MjData(model)
-
+    actuator_names = [model.actuator(i).name for i in range(model.nu)]
+    print(actuator_names)
 
     # 设置 qpos 中的初始关节值
     for joint_name, value in cfg.robot_config.init_joint_pos.items():
@@ -130,9 +122,6 @@ def run_mujoco(policy, cfg):
     mujoco.mj_forward(model, data)
 
     viewer = mujoco_viewer.MujocoViewer(model, data)
-    
-    
-
 
     joint_names = [model.joint(i).name for i in range(model.njnt)]
     print(joint_names)
@@ -181,7 +170,7 @@ def run_mujoco(policy, cfg):
             obs = np.clip(obs, -cfg.normalization.clip_observations, cfg.normalization.clip_observations)
             hist_obs.append(obs)
             hist_obs.popleft()
-            
+
             policy_input = np.zeros([1, cfg.env.num_observations], dtype=np.float32)
             for i in range(cfg.env.frame_stack):
                 policy_input[0, i * cfg.env.num_single_obs : (i + 1) * cfg.env.num_single_obs] = hist_obs[i][0, :]
@@ -230,38 +219,22 @@ class Sim2simCfg():
         
     class sim_config:
         mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/MOSC0516/MOSC_OL.xml'
-        sim_duration = 2000 * 10 * 0.001
-        dt = 0.001
-        decimation = 20
+        sim_duration = 2000 * 10 * 0.002
+        dt = 0.002
+        decimation = 5
 
         
     class rewards:
         cycle_time = 0.60# sec
     
     class robot_config:
-        name_list = ['b_Lh', 'b_Rh',
-                     'Lh_Ll', 'Rh_Rl',
-                     'Ll_Ll1', 'Rl_Rl1', 
-                     'Ll1_Ll2', 'Rl1_Rl2', 
-                     'Ll2_La', 'Rl2_Ra', 
-                     'La_Lf', 'Ra_Rf']
+        name_list = USD_JOINT_NAMES
         
-        
-        
-        kps = np.array([100.0, 100.0,
-                        100.0, 100.0,
-                        100.0, 100.0,
-                        100.0, 100.0, 
-                        50.0, 50.0, 
-                        50.0, 50.0], dtype=np.double) 
+        kps = np.array([100.0, 100.0,100.0, 100.0, 50.0, 24.0,
+                        100.0, 100.0,100.0, 100.0, 50.0, 24.0], dtype=np.double) 
 
-        kds = np.array([2.0, 2.0,
-                        2.0, 2.0,
-                        2.0, 2.0,
-                        2.0, 2.0, 
-                        1.5, 1.5, 
-                        1.5, 1.5], dtype=np.double) 
-        
+        kds = np.array([2.0, 2.0, 2.0, 2.0,1.5,0.3,
+                        2.0, 2.0, 2.0, 2.0,1.5,0.3], dtype=np.double) 
 
         init_joint_pos = {
             "b_Lh": 0.3,
@@ -282,7 +255,7 @@ class Sim2simCfg():
             60.0, 60.0, 
             60.0, 60.0, 
             60.0, 60.0, 
-            60.0, 60.0], dtype=np.double)
+            10.0, 10.0], dtype=np.double)
         
     class control:
         # action scale: target angle = actionScale * action + defaultAngle
