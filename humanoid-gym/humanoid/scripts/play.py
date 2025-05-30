@@ -66,8 +66,8 @@ def play(args):
     env_cfg.asset.fix_base_link = False
     env_cfg.noise.noise_level = 0.5
     train_cfg.runner.resume = True
-    train_cfg.runner.load_run = "May29_23-39-30_v2_off"
-    train_cfg.runner.checkpoint = 900 # model_.pt
+    train_cfg.runner.load_run = "May30_09-23-00_v3_50Hz_nPD"
+    train_cfg.runner.checkpoint = 3000 # model_.pt
     env_cfg.domain_rand.add_com_x = [-0.000,0.000]
     env_cfg.domain_rand.add_com_y = [-0.000,0.000]
     env_cfg.domain_rand.add_com_z = [-0.000,0.000]  

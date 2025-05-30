@@ -151,20 +151,20 @@ class LeggedRobotCfg(BaseConfig):
                     'Ll_Ll1':100, 'Rl_Rl1':100, 
                     'Ll1_Ll2':100, 'Rl1_Rl2':100, 
                     'Ll2_La':50, 'Rl2_Ra':50, 
-                    'La_Lf':50, 'Ra_Rf':50}
+                    'La_Lf':25, 'Ra_Rf':25}
                      
         damping = {'b_Lh':2.0, 'b_Rh':2.0,
                     'Lh_Ll':2.0, 'Rh_Rl':2.0,
                     'Ll_Ll1':2.0, 'Rl_Rl1':2.0, 
                     'Ll1_Ll2':2.0, 'Rl1_Rl2':2.0, 
                     'Ll2_La':1.5, 'Rl2_Ra':1.5, 
-                    'La_Lf':1.5, 'Ra_Rf':1.5}
+                    'La_Lf':0.5, 'Ra_Rf':0.5}
 
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
 
         # decimation: Number of control action updates @ sim DT per policy DT
-        decimation = 10 # 50hz
+        decimation = 5 # 100hz
 
     class sim:
         dt = 0.002  # 1000 Hz

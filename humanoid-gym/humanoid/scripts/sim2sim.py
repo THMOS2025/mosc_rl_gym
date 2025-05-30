@@ -146,7 +146,7 @@ def run_mujoco(policy, cfg):
 
         # Obtain an observation
         q, dq, omega_base, quat, v_base = get_obs(data, cfg)
-        q = q[-cfg.env.num_actions:]
+        q = q[-cfg.env.num_actions:] 
         dq = dq[-cfg.env.num_actions:]
 
         # 1000hz -> 100hz
@@ -160,7 +160,7 @@ def run_mujoco(policy, cfg):
             obs_parts.append(np.array([cmd.vx]))
             obs_parts.append(np.array([cmd.vy]))
             obs_parts.append(np.array([cmd.az]))
-            obs_parts.append(q * cfg.normalization.obs_scales.dof_pos)
+            obs_parts.append((q - action_offset) * cfg.normalization.obs_scales.dof_pos)
             obs_parts.append(dq * cfg.normalization.obs_scales.dof_vel)
             obs_parts.append(action)
             obs_parts.append(omega_base)
@@ -174,14 +174,16 @@ def run_mujoco(policy, cfg):
             policy_input = np.zeros([1, cfg.env.num_observations], dtype=np.float32)
             for i in range(cfg.env.frame_stack):
                 policy_input[0, i * cfg.env.num_single_obs : (i + 1) * cfg.env.num_single_obs] = hist_obs[i][0, :]
+
             action[:] = policy(torch.tensor(policy_input))[0].detach().numpy()
             action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)  
             target_q = action * cfg.control.action_scale + action_offset        
+
         target_dq = np.zeros((cfg.env.num_actions), dtype=np.double)
                     
         # Generate PD control
         tau = pd_control(target_q, q, cfg.robot_config.kps,
-                        target_dq, dq, cfg.robot_config.kds)  # Calc torques
+                         target_dq, dq, cfg.robot_config.kds)  # Calc torques
         tau = np.clip(tau, -cfg.robot_config.tau_limit, cfg.robot_config.tau_limit) # Clamp torques
 
         data.ctrl = tau
@@ -248,7 +250,6 @@ class Sim2simCfg():
         
         if_joint_command_offset = True
         
-        
         tau_limit = np.array([
             60.0, 60.0, 
             60.0, 60.0,
@@ -260,6 +261,7 @@ class Sim2simCfg():
     class control:
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
+
 
 if __name__ == '__main__':
     import argparse
