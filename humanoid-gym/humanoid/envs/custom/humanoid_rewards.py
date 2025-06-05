@@ -99,12 +99,12 @@ class HumanoidRewards(LeggedRobot):
         Calculates the reward based on the distance between the feet. Penilize feet get close to each other or too far away.
         """
         foot_pos = self.rigid_state[:, self.feet_indices, :2]
-        foot_dist = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
+        foot_dist = torch.norm(foot_pos[:, 0, :2] - foot_pos[:, 1, :2], dim=1)
         fd = self.cfg.rewards.min_dist
         max_df = self.cfg.rewards.max_dist
         d_min = torch.clamp(foot_dist - fd, -0.5, 0.)
         d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
-        return (torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)) / 2
+        return (torch.exp(-torch.abs(d_min) * 10) + torch.exp(-torch.abs(d_max) * 10)) / 2
 
 
     def _reward_foot_slip(self):

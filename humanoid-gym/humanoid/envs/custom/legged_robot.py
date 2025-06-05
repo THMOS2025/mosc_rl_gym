@@ -45,7 +45,30 @@ from humanoid.utils.terrain import Terrain
 from humanoid.utils.terrain import HumanoidTerrain
 from humanoid.envs.base.base_task import BaseTask
 from humanoid.utils.math import quat_apply_yaw, wrap_to_pi, torch_rand_sqrt_float, get_euler_xyz_tensor
-
+import cProfile
+import pstats
+import os
+# 性能分析装饰器定义
+def do_cprofile(filename):
+    """
+    Decorator for function profiling.
+    """
+    def wrapper(func):
+        def profiled_func(*args, **kwargs):
+            if True:
+                profile = cProfile.Profile()
+                profile.enable()
+                result = func(*args, **kwargs)
+                profile.disable()
+                # Sort stat by internal time.
+                sortby = "tottime"
+                ps = pstats.Stats(profile).sort_stats(sortby)
+                ps.dump_stats(filename)
+            else:
+                result = func(*args, **kwargs)
+            return result
+        return profiled_func
+    return wrapper
 
 class LeggedRobot(BaseTask):
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
@@ -222,7 +245,7 @@ class LeggedRobot(BaseTask):
         self.obs_buf = obs_buf_all.reshape(self.num_envs, -1)  # N, T*K
         self.privileged_obs_buf = torch.cat([self.critic_history[i] for i in range(self.cfg.env.c_frame_stack)], dim=1)
 
-
+    # @do_cprofile("sts.prof")
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
 

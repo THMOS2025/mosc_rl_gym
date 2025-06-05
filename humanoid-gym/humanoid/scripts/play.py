@@ -66,8 +66,8 @@ def play(args):
     env_cfg.asset.fix_base_link = False
     env_cfg.noise.noise_level = 0.5
     train_cfg.runner.resume = True
-    train_cfg.runner.load_run = "May30_09-23-00_v3_50Hz_nPD"
-    train_cfg.runner.checkpoint = 3000 # model_.pt
+    train_cfg.runner.load_run = "Jun05_21-33-02_v1"
+    train_cfg.runner.checkpoint = 1000 # model_.pt
     env_cfg.domain_rand.add_com_x = [-0.000,0.000]
     env_cfg.domain_rand.add_com_y = [-0.000,0.000]
     env_cfg.domain_rand.add_com_z = [-0.000,0.000]  
@@ -75,7 +75,7 @@ def play(args):
     env_cfg.domain_rand.kp_rand_ratio = 0.000
     env_cfg.domain_rand.kd_rand_ratio = 0.000
     env_cfg.domain_rand.torque_rand_ratio = 0.00
-    stop_state_log = 3000 # number of steps before plotting states
+    stop_state_log = 1000 # number of steps before plotting states
     start_plot = 0
     env_cfg.viewer.debug_viz = True
 
@@ -173,8 +173,7 @@ def play(args):
         if FIX_COMMAND:
             env.commands[:, 0] =  1.0
             env.commands[:, 1] =  0.0
-            env.commands[:, 1] =  0.0
-
+            env.commands[:, 2] =  0.0
         obs, critic_obs, rews, dones, infos = env.step(actions.detach())
 
         if RENDER:

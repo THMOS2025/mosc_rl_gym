@@ -108,9 +108,9 @@ class LeggedRobotCfg(BaseConfig):
         # show command direction
         use_debug_lines = True
         class ranges:
-            lin_vel_x = [-1.0, 1.0]   # min max [m/s]
-            lin_vel_y = [-1.0, 1.0]   # min max [m/s]
-            ang_vel_z = [-1.0, 1.0]   # min max [rad/s]
+            lin_vel_x = [-1.0, 3.0]   # min max [m/s]
+            lin_vel_y = [-1.5, 1.5]   # min max [m/s]
+            ang_vel_z = [-1.5, 1.5]   # min max [rad/s]
 
 
     class noise:
@@ -118,10 +118,10 @@ class LeggedRobotCfg(BaseConfig):
         noise_level = 0.6    # scales other values
 
         class noise_scales:
-            dof_pos = 0.05
-            dof_vel = 0.5
-            ang_vel = 0.1
-            lin_vel = 0.05
+            dof_pos = 0.01
+            dof_vel = 0.8
+            ang_vel = 0.2
+            lin_vel = 0.1
             quat = 0.03
 
     class init_state:
@@ -167,8 +167,8 @@ class LeggedRobotCfg(BaseConfig):
         decimation = 5 # 100hz
 
     class sim:
-        dt = 0.002  # 1000 Hz
-        substeps = 2  # 2
+        dt = 0.001  # 1000 Hz
+        substeps = 1  # 2
         up_axis = 1  # 0 is y, 1 is z
         gravity = [0., 0. ,-9.81]  # [m/s^2]
 
@@ -179,7 +179,7 @@ class LeggedRobotCfg(BaseConfig):
             num_velocity_iterations = 0
             contact_offset = 0.01  # [m]
             rest_offset = 0.0   # [m]
-            bounce_threshold_velocity = 0.1  # [m/s]
+            bounce_threshold_velocity = 0.5  # [m/s]
             max_depenetration_velocity = 1.0
             max_gpu_contact_pairs = 2**23  # 2**24 -> needed for 8000 envs and more
             default_buffer_size_multiplier = 5
@@ -188,16 +188,16 @@ class LeggedRobotCfg(BaseConfig):
 
     class domain_rand:
         randomize_friction = True
-        friction_range = [0.5, 1.5]
-        restitution_range = [0.0, 0.1]
-        rand_init_pos = [0.00,0.00]
-        rand_init_rot = [0.00,0.00]
+        friction_range = [0.3, 1.5]
+        restitution_range = [0.0, 1.0]
+        rand_init_pos = [-0.01,0.01]
+        rand_init_rot = [-0.01,0.01]
 
         randomize_base_mass = True
         add_mass = [-1., 1.]
         add_com_x = [-0.040,0.040]
         add_com_y = [-0.040,0.040]
-        add_com_z = [0,0]
+        add_com_z = [-0.040,0.040]
         add_link_mass = [-0.0,0.0]
         
         action_randomization = 0.02
@@ -215,7 +215,7 @@ class LeggedRobotCfg(BaseConfig):
                 
         push_robots = True
         push_prop = 1
-        push_interval_s = 8
+        push_interval_s = 6
         max_push_vel_xy = 0.3
         max_push_ang_vel = 0.6
         
@@ -224,10 +224,10 @@ class LeggedRobotCfg(BaseConfig):
 
     class rewards:
         #base_height_target = 0.33
-        min_dist = 0.24 
-        max_dist = 0.28
+        min_dist = 0.3
+        max_dist = 0.6
         # put some settings here for LLM parameter tuning
-        target_joint_pos_scale = 0.5        # rad
+        target_joint_pos_scale = 0.8        # rad
         target_feet_height = 0.02            # m
         ref_pos_dir = [-1, 1, -1, -1, 1, -1]
         cycle_time = 0.6                      # sec
@@ -243,19 +243,19 @@ class LeggedRobotCfg(BaseConfig):
             # reference motion tracking
             # stage I
             joint_pos = 1.2
-            #feet_orientation = 1.
+            feet_orientation = 1.
             feet_clearance = 2.
-            tracking_lin_vel = 1.0
-            tracking_ang_vel = 1.0
+            tracking_lin_vel = 10.0
+            tracking_ang_vel = 4.0
             #symmetry_act = 0
 
             # gait
             feet_distance = 0.2
             # feet_air_time = 0.1
-            foot_slip = -0.02
+            foot_slip = -0.05
 
             # contact
-            feet_contact_forces = -0.001
+            feet_contact_forces = -0.01
 
             
             # base pos
@@ -292,11 +292,11 @@ class LeggedRobotCfgPPO(BaseConfig):
         use_clipped_value_loss = True
         clip_param = 0.2
         entropy_coef = 0.001
-        learning_rate = 1e-5
-        num_learning_epochs = 2
+        learning_rate = 1e-3
+        num_learning_epochs = 5
         schedule = 'adaptive' 
-        gamma = 0.994
-        lam = 0.9
+        gamma = 0.99
+        lam = 0.95
         num_mini_batches = 4
         desired_kl = 0.01
         max_grad_norm = 1.
@@ -305,14 +305,14 @@ class LeggedRobotCfgPPO(BaseConfig):
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
         num_steps_per_env = 60  # per iteration
-        max_iterations = 30001  # number of policy updates
+        max_iterations = 1000  # number of policy updates
 
         # logging
         save_interval = 100  # check for potential saves every this many iterations
         experiment_name = 'MOSC'
         run_name = ''
         # load and resume
-        resume = False
-        load_run = -1 # -1 = last run
-        checkpoint = 6000 # -1 = last saved model
+        resume = True
+        load_run = "Jun05_20-25-48_v1" # -1 = last run
+        checkpoint = 1000 # -1 = last saved model
         resume_path = None  # updated from load_run 

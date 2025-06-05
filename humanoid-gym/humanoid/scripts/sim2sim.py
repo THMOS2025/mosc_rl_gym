@@ -196,7 +196,7 @@ def run_mujoco(policy, cfg):
 
 
 class cmd:
-    vx = 0.3
+    vx = 3.0
     vy = 0.0
     az = 0.0
 
@@ -221,9 +221,9 @@ class Sim2simCfg():
         
     class sim_config:
         mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/MOSC0516/MOSC_OL.xml'
-        sim_duration = 2000 * 10 * 0.002
-        dt = 0.002
-        decimation = 5
+        sim_duration = 2000 * 0.01
+        dt = 0.001
+        decimation = 10
 
         
     class rewards:
@@ -271,5 +271,5 @@ if __name__ == '__main__':
                         help='Run to load from.')
     args = parser.parse_args()
         
-    policy = torch.jit.load(LEGGED_GYM_ROOT_DIR + "/logs/T1/exported/policies/policy_" + args.run_name + ".pt")
+    policy = torch.jit.load(LEGGED_GYM_ROOT_DIR + "/logs/MOSC/exported/policies/policy_" + args.run_name + ".pt")
     run_mujoco(policy, Sim2simCfg())
