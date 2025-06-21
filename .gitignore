@@ -64,3 +64,5 @@ videos
 # other
 *.egg-info
 __pycache__
+*.txt
+*.png

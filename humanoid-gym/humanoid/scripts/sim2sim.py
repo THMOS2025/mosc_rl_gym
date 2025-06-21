@@ -37,11 +37,89 @@ from collections import deque
 from scipy.spatial.transform import Rotation as R
 from humanoid import LEGGED_GYM_ROOT_DIR
 import torch
-
+from datetime import datetime
+import time
 USD_JOINT_NAMES = ['b_Lh','Lh_Ll','Ll_Ll1','Ll1_Ll2','Ll2_La','La_Lf', 
                    'b_Rh','Rh_Rl','Rl_Rl1','Rl1_Rl2','Rl2_Ra','Ra_Rf']
 
 
+class Data_log:
+    log_path = 'data_logs/' + datetime.now().strftime('%b%d_%H-%M-%S') + '/'
+    if not os.path.exists('data_logs/'):
+        os.makedirs('data_logs/')
+    if not os.path.exists(log_path):
+        os.makedirs(log_path) 
+    joint_name = [
+                'l_hip_pitch',
+                'l_hip_roll',
+                'l_hip_yaw',
+                'l_knee_pitch',
+                'l_ankle_pitch',
+                'l_ankle_roll',
+                'r_hip_pitch',
+                'r_hip_roll',
+                'r_hip_yaw',
+                'r_knee_pitch',
+                'r_ankle_pitch',
+                'r_ankle_roll']
+    imu_name = [
+                'roll',
+                'pitch',
+                'yaw',
+                'x',
+                'y',
+                'z']
+    path_name = [
+                log_path + 'joint_act.txt',
+                log_path + 'joint_pos.txt',
+                log_path + 'joint_vel.txt',
+                log_path + 'base_ang_eul.txt',
+                log_path + 'base_ang_vel.txt',
+                log_path + 'cmd.txt']
+    
+    rpy = np.zeros((3), dtype=np.double)
+    omega =np.zeros((3), dtype=np.double)
+    act = np.zeros((12), dtype=np.double)
+    q = np.zeros((12), dtype=np.double)
+    dq = np.zeros((12), dtype=np.double)
+    cmd = np.zeros((3), dtype=np.double) 
+
+    def rec(self):
+        with open(self.path_name[0], 'a') as f:
+            str_arr = np.array2string(np.array(self.act[:14]), separator=',')
+            str_arr = str_arr.replace('[', '').replace(']', '').replace('\n', '')
+            f.writelines(str_arr)
+            f.writelines("\n")
+        with open(self.path_name[1], 'a') as f:
+            str_arr = np.array2string(np.array(self.q[:14]), separator=',')
+            str_arr = str_arr.replace('[', '').replace(']', '').replace('\n', '')
+            f.writelines(str_arr)
+            f.writelines("\n")
+        with open(self.path_name[2], 'a') as f:
+            str_arr = np.array2string(np.array(self.dq[:14]), separator=',')
+            str_arr = str_arr.replace('[', '').replace(']', '').replace('\n', '')
+            f.writelines(str_arr)
+            f.writelines("\n")
+        with open(self.path_name[3], 'a') as f:
+            str_arr = np.array2string(np.array(self.rpy[:3]), separator=',')
+            str_arr = str_arr.replace('[', '').replace(']', '').replace('\n', '')
+            f.writelines(str_arr)
+            f.writelines("\n")
+        with open(self.path_name[4], 'a') as f:
+            str_arr = np.array2string(np.array(self.omega[:3]), separator=',')
+            str_arr = str_arr.replace('[', '').replace(']', '').replace('\n', '')
+            f.writelines(str_arr)
+            f.writelines("\n")
+        with open(self.path_name[5], 'a') as f:
+            str_arr = np.array2string(np.array(self.act[:3]), separator=',')
+            str_arr = str_arr.replace('[', '').replace(']', '').replace('\n', '')
+            f.writelines(str_arr)
+            f.writelines("\n")
+
+REC = True
+
+if REC:
+    data_rec = Data_log()
 
 
 
@@ -104,6 +182,9 @@ def run_mujoco(policy, cfg):
         None
     """
     model = mujoco.MjModel.from_xml_path(cfg.sim_config.mujoco_model_path)
+    # TODO
+    # model.body_mass[:] = model.body_mass * 0.5
+    print(model.body_mass)
     model.opt.timestep = cfg.sim_config.dt
     data = mujoco.MjData(model)
     actuator_names = [model.actuator(i).name for i in range(model.nu)]
@@ -124,7 +205,7 @@ def run_mujoco(policy, cfg):
     viewer = mujoco_viewer.MujocoViewer(model, data)
 
     joint_names = [model.joint(i).name for i in range(model.njnt)]
-    print(joint_names)
+    #print(joint_names)
 
     target_q = np.zeros((cfg.env.num_actions), dtype=np.double)
     action = np.zeros((cfg.env.num_actions), dtype=np.double)
@@ -141,7 +222,8 @@ def run_mujoco(policy, cfg):
         mujoco.mj_step(model, data)
         viewer.render()
 
-        
+    if REC:
+        global data_rec
     for _ in tqdm(range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)), desc="Simulating..."):
 
         # Obtain an observation
@@ -153,7 +235,12 @@ def run_mujoco(policy, cfg):
         if count_lowlevel % cfg.sim_config.decimation == 0:
             eu_ang = quaternion_to_euler_array(quat)
             eu_ang[eu_ang > math.pi] -= 2 * math.pi
+            
+            # add noise
+            # eu_ang = eu_ang + np.random.randn(*eu_ang.shape) * 0.12 * 0.6
+            # omega_base = omega_base + np.random.randn(*omega_base.shape) * 0.12 * 0.6
 
+            #print(eu_ang)
             obs_parts = []
             obs_parts.append(np.array([math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time)])) 
             obs_parts.append(np.array([math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time)]))
@@ -164,7 +251,7 @@ def run_mujoco(policy, cfg):
             obs_parts.append(dq * cfg.normalization.obs_scales.dof_vel)
             obs_parts.append(action)
             obs_parts.append(omega_base)
-            obs_parts.append(eu_ang)
+            obs_parts.append(eu_ang) 
             obs = np.expand_dims(np.concatenate(obs_parts, axis=-1), axis=0).astype(np.float32)
 
             obs = np.clip(obs, -cfg.normalization.clip_observations, cfg.normalization.clip_observations)
@@ -177,7 +264,21 @@ def run_mujoco(policy, cfg):
 
             action[:] = policy(torch.tensor(policy_input))[0].detach().numpy()
             action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)  
-            target_q = action * cfg.control.action_scale + action_offset        
+            # print(policy_input)
+            # print(action)
+            # time.sleep(100.0)
+            
+            target_q = action * cfg.control.action_scale + action_offset 
+            # target_q[4] = 0.3 * np.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time * 0.1)
+            # target_q[10] = -0.3 * np.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time * 0.1)  
+            # print([q[3]/3.141593*180,q[9]/3.141593*180])
+            if REC:
+                data_rec.rpy = eu_ang
+                data_rec.omega = omega_base
+                data_rec.q = q
+                data_rec.dq = dq
+                data_rec.act = target_q
+                data_rec.rec()
 
         target_dq = np.zeros((cfg.env.num_actions), dtype=np.double)
                     
@@ -196,7 +297,7 @@ def run_mujoco(policy, cfg):
 
 
 class cmd:
-    vx = 3.0
+    vx = 0.2
     vy = 0.0
     az = 0.0
 
@@ -223,11 +324,11 @@ class Sim2simCfg():
         mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/MOSC0516/MOSC_OL.xml'
         sim_duration = 2000 * 0.01
         dt = 0.001
-        decimation = 10
+        decimation = 20
 
         
     class rewards:
-        cycle_time = 0.60# sec
+        cycle_time = 0.8#0.60# sec
     
     class robot_config:
         name_list = USD_JOINT_NAMES
@@ -238,6 +339,15 @@ class Sim2simCfg():
         kds = np.array([2.0, 2.0, 2.0, 2.0,1.5,0.3,
                         2.0, 2.0, 2.0, 2.0,1.5,0.3], dtype=np.double) 
 
+ 
+        # kps = np.array([10.0, 10.0,10.0, 10.0, 10, 10.0,
+        #                 10.0, 10.0,10.0, 10.0, 10, 10.0], dtype=np.double) 
+        # kds = np.array([2.0, 2.0, 2.0, 2.0, 2.0, 2.0,
+        #                 2.0, 2.0, 2.0, 2.0, 2.0, 2.0], dtype=np.double)
+        # kds = np.array([0.263, 0.263, 0.263, 0.263, 0.0495,0.0495,
+        #                 0.263, 0.263, 0.263, 0.263, 0.0495,0.0495], dtype=np.double) 
+        # kps = np.array([100, 100, 100, 100, 50, 50, 100, 100, 100, 100, 50, 50])
+        # kds = np.array([0.6, 0.6, 0.6, 0.6, 0.05, 0.05, 0.6, 0.6, 0.6, 0.6, 0.05, 0.05]) 
         init_joint_pos = {
             "b_Lh": 0.3,
             "Ll1_Ll2": -0.6,
@@ -272,4 +382,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
         
     policy = torch.jit.load(LEGGED_GYM_ROOT_DIR + "/logs/MOSC/exported/policies/policy_" + args.run_name + ".pt")
+    print(f"loading policy from {LEGGED_GYM_ROOT_DIR}/logs/MOSC/exported/policies/policy_{args.run_name}.pt")
+
+    
     run_mujoco(policy, Sim2simCfg())

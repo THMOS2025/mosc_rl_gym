@@ -36,13 +36,15 @@
 	<light directional="true" diffuse=".6 .6 .6" specular="0.2 0.2 0.2" pos="0 0 4" dir="0 0 -1" />
 	<geom name="ground" type="plane" size="0 0 1" pos="0.001 0 0" quat="1 0 0 0" material="matplane" condim="1" conaffinity="15" />
     
-    <body name="base_link" pos="0.0 0.0 0.51">
+    <body name="base_link" pos="0.0 0.0 0.49" quat="0 0 0 1">
+        <!-- <quat="0.966 0 0 0.259"> 30 Deg Rotate-->
         <joint type='ball' limited='false' />
         <site name='imu' size='0.01' pos='0.0 0 0.0'/> 
         <joint type='slide' axis='1 0 0' limited='false' />
         <joint type='slide' axis='0 1 0' limited='false' />
         <joint type='slide' axis='0 0 1' limited='false' />
         <geom type="mesh" rgba="1 1 1 1" mesh="body" />
+        <inertial pos="-0.015528 8.5936E-05	0.075987" quat="1 0 0 0" mass="6.3113" diaginertia="0.077442 0.059944 0.03406" />
         <body name="neck" pos="-0.00499961 0 0.2301" quat="0.707107 0 0 0.707107">
             <inertial pos="1.95467e-05 8.24112e-05 0.0373619" quat="0.999021 -0.00783606 -0.015633 -0.0406329" mass="0.225362" diaginertia="0.000108188 0.000103137 7.38934e-05" />
             <!-- <joint name="b_n" pos="0 0 0" axis="0 0 -1" /> -->

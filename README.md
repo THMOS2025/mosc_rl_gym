@@ -49,3 +49,4 @@ sim2sim
 ```shell
 python humanoid-gym/humanoid/scripts/sim2sim.py --run_name v1 
 ```
+

@@ -177,10 +177,10 @@ class LeggedRobot(BaseTask):
         noise_scales = self.cfg.noise.noise_scales
         noise_vec[0: 5] = 0.  # commands
         noise_vec[5: 17] = noise_scales.dof_pos * self.obs_scales.dof_pos
-        noise_vec[17: 31] = noise_scales.dof_vel * self.obs_scales.dof_vel
-        noise_vec[31: 45] = 0.  # previous actions
-        noise_vec[45: 48] = noise_scales.ang_vel * self.obs_scales.ang_vel       # ang vel
-        noise_vec[48: 51] = noise_scales.quat * self.obs_scales.quat             # euler x,y
+        noise_vec[17: 29] = noise_scales.dof_vel * self.obs_scales.dof_vel
+        noise_vec[29: 41] = 0.  # previous actions
+        noise_vec[41: 44] = noise_scales.ang_vel * self.obs_scales.ang_vel       # ang vel
+        noise_vec[44: 47] = noise_scales.quat * self.obs_scales.quat             # euler x,y
         return noise_vec
 
     def compute_observations(self):
@@ -464,7 +464,6 @@ class LeggedRobot(BaseTask):
                 self.dof_pos_limits[i, 1] = props["upper"][i].item() * self.cfg.safety.pos_limit
                 self.dof_vel_limits[i] = props["velocity"][i].item() * self.cfg.safety.vel_limit
                 self.torque_limits[i] = props["effort"][i].item() * self.cfg.safety.torque_limit
-            print(self.torque_limits)
         for i in range(len(props)):
             props["friction"][i] += torch_rand_float(self.cfg.domain_rand.joint_friction[0], self.cfg.domain_rand.joint_friction[1], (1, 1), device=self.device)
             props["armature"][i] += torch_rand_float(self.cfg.domain_rand.joint_armature[0], self.cfg.domain_rand.joint_armature[1], (1, 1), device=self.device)
@@ -482,9 +481,9 @@ class LeggedRobot(BaseTask):
             props[0].com.x += self.body_dcom[env_id, 0]
             props[0].com.y += self.body_dcom[env_id, 1]
             props[0].com.z += self.body_dcom[env_id, 2]
-            link_masses_add = torch_rand_float(self.cfg.domain_rand.add_link_mass[0], self.cfg.domain_rand.add_link_mass[1], (1, self.num_bodies-1), device=self.device)
+            link_masses_add = torch_rand_float(self.cfg.domain_rand.add_link_mass_rate[0], self.cfg.domain_rand.add_link_mass_rate[1], (1, self.num_bodies-1), device=self.device)
             for i in range(1, len(props)):
-                props[i].mass += link_masses_add[0,i-1]
+                props[i].mass *= link_masses_add[0,i-1]
         return props
     
     def _post_physics_step_callback(self):

@@ -85,8 +85,8 @@ class LeggedRobotCfg(BaseConfig):
         dynamic_friction = 1.0
         restitution = 0.
 
-        mesh_type = 'plane'
-        #mesh_type = 'trimesh'
+        #mesh_type = 'plane'
+        mesh_type = 'trimesh'
               
         terrain_length = 8.
         terrain_width = 8.
@@ -108,9 +108,9 @@ class LeggedRobotCfg(BaseConfig):
         # show command direction
         use_debug_lines = True
         class ranges:
-            lin_vel_x = [-1.0, 3.0]   # min max [m/s]
-            lin_vel_y = [-1.5, 1.5]   # min max [m/s]
-            ang_vel_z = [-1.5, 1.5]   # min max [rad/s]
+            lin_vel_x = [-1.0, 1.5]   # min max [m/s]
+            lin_vel_y = [-1.0, 1.0]   # min max [m/s]
+            ang_vel_z = [-1.0, 1.0]   # min max [rad/s]
 
 
     class noise:
@@ -164,10 +164,10 @@ class LeggedRobotCfg(BaseConfig):
         action_scale = 0.25
 
         # decimation: Number of control action updates @ sim DT per policy DT
-        decimation = 5 # 100hz
+        decimation = 10 # 50hz
 
     class sim:
-        dt = 0.001  # 1000 Hz
+        dt = 0.002  # 1000 Hz
         substeps = 1  # 2
         up_axis = 1  # 0 is y, 1 is z
         gravity = [0., 0. ,-9.81]  # [m/s^2]
@@ -188,17 +188,17 @@ class LeggedRobotCfg(BaseConfig):
 
     class domain_rand:
         randomize_friction = True
-        friction_range = [0.3, 1.5]
+        friction_range = [0.3, 0.8]
         restitution_range = [0.0, 1.0]
         rand_init_pos = [-0.01,0.01]
         rand_init_rot = [-0.01,0.01]
 
         randomize_base_mass = True
-        add_mass = [-1., 1.]
+        add_mass = [-6., 2.]
         add_com_x = [-0.040,0.040]
         add_com_y = [-0.040,0.040]
         add_com_z = [-0.040,0.040]
-        add_link_mass = [-0.0,0.0]
+        add_link_mass_rate = [0.5,1.5]
         
         action_randomization = 0.02
         action_rand_filter_rate = 0.05
@@ -210,15 +210,15 @@ class LeggedRobotCfg(BaseConfig):
         init_joint_pos_r = 0.05
         joint_friction = [0.0,0.0] # 0 -0.1
         joint_armature = [0.0,0.0]
-        joint_max_delay = 2
-        joint_min_delay = 0
+        joint_max_delay = 10
+        joint_min_delay = 5
                 
         push_robots = True
         push_prop = 1
-        push_interval_s = 6
+        push_interval_s = 4
         max_push_vel_xy = 0.3
         max_push_ang_vel = 0.6
-        
+
 
 
 
@@ -227,15 +227,15 @@ class LeggedRobotCfg(BaseConfig):
         min_dist = 0.3
         max_dist = 0.6
         # put some settings here for LLM parameter tuning
-        target_joint_pos_scale = 0.8        # rad
-        target_feet_height = 0.02            # m
+        target_joint_pos_scale = 0.5        # rad
+        target_feet_height = 0.05            # m
         ref_pos_dir = [-1, 1, -1, -1, 1, -1]
-        cycle_time = 0.6                      # sec
-        double_stand_phase = 0.5              # sec
+        cycle_time = 0.8                      # sec
+        double_stand_phase = 0.5              # 
         # if true negative total rewards are clipped at zero (avoids early termination problems)
         only_positive_rewards = True
         max_contact_force = 300  # forces above this value are penalized
-        tracking_sigma = 0.25
+        tracking_sigma = 0.5 # 0.25
 
         class scales:
             termination = -100
@@ -245,8 +245,10 @@ class LeggedRobotCfg(BaseConfig):
             joint_pos = 1.2
             feet_orientation = 1.
             feet_clearance = 2.
-            tracking_lin_vel = 10.0
-            tracking_ang_vel = 4.0
+            # tracking_lin_vel = 10.0
+            # tracking_ang_vel = 4.0
+            tracking_lin_vel = 3.0
+            tracking_ang_vel = 0.5
             #symmetry_act = 0
 
             # gait
@@ -305,14 +307,14 @@ class LeggedRobotCfgPPO(BaseConfig):
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
         num_steps_per_env = 60  # per iteration
-        max_iterations = 1000  # number of policy updates
+        max_iterations = 4000  # number of policy updates
 
         # logging
-        save_interval = 100  # check for potential saves every this many iterations
+        save_interval = 400  # check for potential saves every this many iterations
         experiment_name = 'MOSC'
         run_name = ''
         # load and resume
         resume = True
-        load_run = "Jun05_20-25-48_v1" # -1 = last run
-        checkpoint = 1000 # -1 = last saved model
+        load_run = 'Jun20_18-06-04_v3' # -1 = last run
+        checkpoint = 3600 # -1 = last saved model
         resume_path = None  # updated from load_run 
