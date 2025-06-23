@@ -119,9 +119,12 @@ class LeggedRobot(BaseTask):
 
         root_ids_int32 = torch.tensor(self.robot_idxs,device=self.device).to(dtype=torch.int32)
         self.all_root_states[self.robot_idxs,:] = self.root_states
-        self.gym.set_actor_root_state_tensor_indexed(self.sim,
-                                                     gymtorch.unwrap_tensor(self.all_root_states),
-                                                     gymtorch.unwrap_tensor(root_ids_int32), len(root_ids_int32))
+        self.gym.set_actor_root_state_tensor_indexed(
+            self.sim,
+            gymtorch.unwrap_tensor(self.all_root_states),
+            gymtorch.unwrap_tensor(root_ids_int32), len(root_ids_int32))
+        
+        
 
     def  _get_phase(self):
         cycle_time = self.cfg.rewards.cycle_time
@@ -604,10 +607,10 @@ class LeggedRobot(BaseTask):
         """ Initialize torch tensors which will contain simulation states and processed quantities
         """
         # get gym GPU state tensors
-        actor_root_state = self.gym.acquire_actor_root_state_tensor(self.sim)
-        dof_state_tensor = self.gym.acquire_dof_state_tensor(self.sim)
-        net_contact_forces = self.gym.acquire_net_contact_force_tensor(self.sim)
-        rigid_body_state = self.gym.acquire_rigid_body_state_tensor(self.sim)
+        actor_root_state = self.gym.acquire_actor_root_state_tensor(self.sim)     # [pos, quat, lin vel, ang vel], shape: (num_envs * num_actors, 13)
+        dof_state_tensor = self.gym.acquire_dof_state_tensor(self.sim)  # [pos, vel], shape: (num_envs * num_dofs, 2)
+        net_contact_forces = self.gym.acquire_net_contact_force_tensor(self.sim) # shape: (num_envs * num_bodies, 3)
+        rigid_body_state = self.gym.acquire_rigid_body_state_tensor(self.sim) # shape: (num_envs * num_bodies, 13)
 
         self.gym.refresh_dof_state_tensor(self.sim)
         self.gym.refresh_actor_root_state_tensor(self.sim)

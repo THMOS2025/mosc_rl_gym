@@ -112,13 +112,17 @@ def plot_fig(target_control_period_in_s):
                 a.set(ylabel='Position [degree]', title= imu_name[imu_index])
             else:
                 a.set(title= imu_name[imu_index])
-            a.legend()
+            handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
             
             a = axs[1, imu_index]
             a.plot(time, base_anglevel_rec[imu_index,:stop_state_log])
             if (imu_index == 0):
                 a.set(ylabel='Vel [degree/s]')
-            a.legend()
+            handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
             
         if PLOT_SHOW:
             plt.show()
@@ -137,13 +141,17 @@ def plot_fig(target_control_period_in_s):
                 a.set(ylabel='Position [degree]', title= joint_name[joint_index])
             else:
                 a.set(title= joint_name[joint_index])
-            a.legend()
+            handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
             
             # a = axs[1, joint_index]
             # a.plot(time, joint_torques_rec[joint_index,:stop_state_log])
             # if (joint_index_l == 0):
             #     a.set(ylabel='Torque [N*m]') 
-            # a.legend()
+            # handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
             
             a = axs[1, joint_index]
             a.plot(time, joint_dof_vec_rec[joint_index,:stop_state_log])
@@ -151,7 +159,9 @@ def plot_fig(target_control_period_in_s):
                 a.set(xlabel='time [s]', ylabel='Velocity [degree/s]')
             else:
                 a.set(xlabel='time [s]')  
-            a.legend()
+            handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
         if PLOT_SHOW:
             plt.show()
         else:
@@ -169,13 +179,17 @@ def plot_fig(target_control_period_in_s):
                 a.set(ylabel='Position [degree]', title= joint_name[joint_index])
             else:
                 a.set(title= joint_name[joint_index])
-            a.legend()
+            handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
             
             # a = axs[1, joint_index_l]
             # a.plot(time, joint_torques_rec[joint_index,:stop_state_log])
             # if (joint_index_l == 0):
             #     a.set(ylabel='Torque [N*m]')
-            # a.legend()
+            # handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
             
             a = axs[1, joint_index_l]
             a.plot(time, joint_dof_vec_rec[joint_index,:stop_state_log])
@@ -183,7 +197,9 @@ def plot_fig(target_control_period_in_s):
                 a.set(xlabel='time [s]', ylabel='Velocity [degree/s]')
             else:
                 a.set(xlabel='time [s]')  
-            a.legend()
+            handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
         if PLOT_SHOW:
             plt.show()
         else:
@@ -201,13 +217,17 @@ def plot_fig(target_control_period_in_s):
                 a.set(ylabel='Position [degree]', title= joint_name[joint_index])
             else:
                 a.set(title= joint_name[joint_index])
-            a.legend()
+            handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
             
             # a = axs[1, joint_index_r]
             # a.plot(time, joint_torques_rec[joint_index,:stop_state_log])
             # if (joint_index_r == 0):
             #     a.set(ylabel='Torque [N*m]')    
-            # a.legend()
+            # handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
             
             a = axs[1, joint_index_r]
             a.plot(time, joint_dof_vec_rec[joint_index,:stop_state_log])
@@ -215,7 +235,9 @@ def plot_fig(target_control_period_in_s):
                 a.set(xlabel='time [s]', ylabel='Velocity [degree/s]')
             else:
                 a.set(xlabel='time [s]')             
-            a.legend()
+            handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
         if PLOT_SHOW:
             plt.show()
         else:
@@ -233,13 +255,17 @@ def plot_fig(target_control_period_in_s):
                 a.set(ylabel='Position [degree]', title= joint_name[joint_index])
             else:
                 a.set(title= joint_name[joint_index])
-            a.legend()
+            handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
             
             # a = axs[1, joint_index_r]
             # a.plot(time, joint_torques_rec[joint_index,:stop_state_log])
             # if (joint_index_r == 0):
             #     a.set(ylabel='Torque [N*m]')        
-            # a.legend()
+            # handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
             
             a = axs[1, joint_index_r]
             a.plot(time, joint_dof_vec_rec[joint_index,:stop_state_log])
@@ -247,7 +273,9 @@ def plot_fig(target_control_period_in_s):
                 a.set(xlabel='time [s]', ylabel='Velocity [degree/s]')
             else:
                 a.set(xlabel='time [s]')             
-            a.legend()
+            handles, labels = a.get_legend_handles_labels()
+            if len(handles) > 0:
+                a.legend()
         if PLOT_SHOW:
             plt.show()
         else:

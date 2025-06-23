@@ -66,8 +66,8 @@ def play(args):
     env_cfg.asset.fix_base_link = False
     env_cfg.noise.noise_level = 0.5
     train_cfg.runner.resume = True
-    train_cfg.runner.load_run = "Jun20_21-01-00_v3_s2"
-    train_cfg.runner.checkpoint = 3200 # model_.pt
+    train_cfg.runner.load_run = -1
+    train_cfg.runner.checkpoint = -1
     env_cfg.domain_rand.add_com_x = [-0.000,0.000]
     env_cfg.domain_rand.add_com_y = [-0.000,0.000]
     env_cfg.domain_rand.add_com_z = [-0.000,0.000]  
@@ -83,19 +83,28 @@ def play(args):
     print("train_cfg.runner_class_name:", train_cfg.runner_class_name)
     
     
-    # search the run name in the MOSC directory
-    root_dir = "./humanoid-gym/logs/MOSC/"
-    load_run = None
+    train_cfg.runner.load_run = 'Jun20_18-06-04_v3'
+    train_cfg.runner.checkpoint = 3600
+    
+    
+    if train_cfg.runner.load_run == -1:
+        # search the run name in the MOSC directory
+        root_dir = "./humanoid-gym/logs/MOSC/"
+        load_run = None
+        latest_time = -1
 
-    # find the first directory that matches the run name
-    for d in os.listdir(root_dir):
-        dir_path = os.path.join(root_dir, d)
-        if os.path.isdir(dir_path) and d.endswith(args.run_name):
-            load_run = d
-            break  # fine the first match and exit
-    train_cfg.runner.load_run = load_run
+        for d in os.listdir(root_dir):
+            dir_path = os.path.join(root_dir, d)
+            if os.path.isdir(dir_path) and d.endswith(args.run_name):
+                mtime = os.path.getmtime(dir_path)
+                if mtime > latest_time:
+                    latest_time = mtime
+                    load_run = d
+        train_cfg.runner.load_run = load_run
 
-    print("find dir:", load_run)
+        print("find dir:", load_run)
+        
+        
 
 
     if RECDATA:

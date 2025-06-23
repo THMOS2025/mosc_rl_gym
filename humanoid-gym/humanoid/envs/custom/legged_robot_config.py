@@ -57,7 +57,7 @@ class LeggedRobotCfg(BaseConfig):
         torque_limit = 0.85
 
     class asset:
-        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/MOSC0516/MOSC_0516_offset.urdf'  
+        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/MOSC0516/MOSC_UH_point_feet.urdf'  
         name = "MOSC"
         foot_name = "foot"
         # terminate_after_contacts_on = ['base_link','hip_yaw','hip_roll','thigh','calf']
@@ -216,8 +216,8 @@ class LeggedRobotCfg(BaseConfig):
         push_robots = True
         push_prop = 1
         push_interval_s = 4
-        max_push_vel_xy = 0.3
-        max_push_ang_vel = 0.6
+        max_push_vel_xy = 0.3 * 1.5
+        max_push_ang_vel = 0.6 * 1.5
 
 
 
@@ -247,7 +247,7 @@ class LeggedRobotCfg(BaseConfig):
             feet_clearance = 2.
             # tracking_lin_vel = 10.0
             # tracking_ang_vel = 4.0
-            tracking_lin_vel = 3.0
+            tracking_lin_vel = 3.0 * 4/3
             tracking_ang_vel = 0.5
             #symmetry_act = 0
 
@@ -307,14 +307,14 @@ class LeggedRobotCfgPPO(BaseConfig):
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
         num_steps_per_env = 60  # per iteration
-        max_iterations = 4000  # number of policy updates
+        max_iterations = 2000  # number of policy updates
 
         # logging
         save_interval = 400  # check for potential saves every this many iterations
         experiment_name = 'MOSC'
         run_name = ''
         # load and resume
-        resume = True
+        resume = False
         load_run = 'Jun20_18-06-04_v3' # -1 = last run
         checkpoint = 3600 # -1 = last saved model
         resume_path = None  # updated from load_run 
