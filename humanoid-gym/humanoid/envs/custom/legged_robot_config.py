@@ -216,8 +216,8 @@ class LeggedRobotCfg(BaseConfig):
         push_robots = True
         push_prop = 1
         push_interval_s = 4
-        max_push_vel_xy = 0.3 * 1.5
-        max_push_ang_vel = 0.6 * 1.5
+        max_push_vel_xy = 0.3 * 1.2
+        max_push_ang_vel = 0.6 * 1.2
 
 
 
@@ -238,17 +238,17 @@ class LeggedRobotCfg(BaseConfig):
         tracking_sigma = 0.5 # 0.25
 
         class scales:
-            termination = -100
+            termination = -200
             
             # reference motion tracking
             # stage I
-            joint_pos = 1.2
+            joint_pos = 1.2 * 1.1
             feet_orientation = 1.
             feet_clearance = 2.
             # tracking_lin_vel = 10.0
             # tracking_ang_vel = 4.0
-            tracking_lin_vel = 3.0 * 4/3
-            tracking_ang_vel = 0.5
+            tracking_lin_vel = 3.0 * 1.5
+            tracking_ang_vel = 0.5 * 1.5
             #symmetry_act = 0
 
             # gait
@@ -261,7 +261,7 @@ class LeggedRobotCfg(BaseConfig):
 
             
             # base pos
-            orientation = 1.0
+            orientation = 1.0 * 1.2
 
             # energy
             action_smoothness = -1e-2
@@ -313,8 +313,14 @@ class LeggedRobotCfgPPO(BaseConfig):
         save_interval = 400  # check for potential saves every this many iterations
         experiment_name = 'MOSC'
         run_name = ''
+        
         # load and resume
-        resume = False
+        resume = True
+        
         load_run = 'Jun20_18-06-04_v3' # -1 = last run
         checkpoint = 3600 # -1 = last saved model
+        
+        # load_run = 'Jun23_21-26-19_v3_s2' # -1 = last run
+        # checkpoint = -1 # -1 = last saved model
+        
         resume_path = None  # updated from load_run 

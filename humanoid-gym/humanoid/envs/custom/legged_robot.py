@@ -846,8 +846,8 @@ class LeggedRobot(BaseTask):
     def compute_ref_state(self):
         phase = self._get_phase()
         sin_pos = torch.sin(2 * torch.pi * phase)
-        sin_pos_l = sin_pos.clone()
-        sin_pos_r = sin_pos.clone()
+        sin_pos_l = sin_pos.clone() - 0.05
+        sin_pos_r = sin_pos.clone() + 0.05
         self.ref_dof_pos = torch.zeros_like(self.dof_pos)
         
         scale_1 = self.cfg.rewards.target_joint_pos_scale 

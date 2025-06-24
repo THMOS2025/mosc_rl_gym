@@ -49,9 +49,9 @@ from datetime import datetime
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
-    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 1)
+    env_cfg.env.num_envs = 20
     env_cfg.sim.max_gpu_contact_pairs = 2**10
-    #env_cfg.terrain.mesh_type = 'trimesh'
+    # env_cfg.terrain.mesh_type = 'trimesh'
     env_cfg.terrain.mesh_type = 'plane'
     env_cfg.terrain.num_rows = 5
     env_cfg.terrain.num_cols = 5    
@@ -60,7 +60,6 @@ def play(args):
     env_cfg.domain_rand.push_robots = False 
     env_cfg.domain_rand.joint_angle_noise = 0.
     env_cfg.noise.curriculum = False
-    env_cfg.rewards.cycle_time = 0.6
     env_cfg.asset.test_ref_dof = False
     env_cfg.asset.disable_gravity = False
     env_cfg.asset.fix_base_link = False
@@ -83,8 +82,8 @@ def play(args):
     print("train_cfg.runner_class_name:", train_cfg.runner_class_name)
     
     
-    train_cfg.runner.load_run = 'Jun20_18-06-04_v3'
-    train_cfg.runner.checkpoint = 3600
+    # train_cfg.runner.load_run = 'Jun20_18-06-04_v3'
+    # train_cfg.runner.checkpoint = 3600
     
     
     if train_cfg.runner.load_run == -1:
@@ -195,7 +194,7 @@ def play(args):
         env.debug_viz = True
         
         if FIX_COMMAND:
-            env.commands[:, 0] =  1.0
+            env.commands[:, 0] =  0.3
             env.commands[:, 1] =  0.0
             env.commands[:, 2] =  0.0
         obs, critic_obs, rews, dones, infos = env.step(actions.detach())

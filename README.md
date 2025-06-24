@@ -34,7 +34,7 @@ humanoid_gym
 train
 
 ```shell
-python humanoid-gym/humanoid/scripts/train.py --task=humanoid_ppo --run_name v1 --headless --num_envs 4096
+python humanoid-gym/humanoid/scripts/train.py --task=humanoid_ppo --run_name v1 --headless
 ```
 
 

@@ -75,7 +75,7 @@ class HumanoidRewards(LeggedRobot):
         """
         joint_pos = self.dof_pos.clone()
         pos_target = self.ref_dof_pos.clone()
-        diff = joint_pos[:,:12] - pos_target[:,:12]
+        diff = joint_pos[:, :12] - pos_target[:, :12]
         r = torch.exp(-2 * torch.norm(diff, dim=1)) - 0.2 * torch.norm(diff, dim=1).clamp(0, 0.5)
         return r
 

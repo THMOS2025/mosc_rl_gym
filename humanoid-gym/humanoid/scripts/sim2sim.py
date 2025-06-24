@@ -297,7 +297,7 @@ def run_mujoco(policy, cfg):
 
 
 class cmd:
-    vx = 0.5
+    vx = 0.3
     vy = 0.0
     az = 0.0
 
