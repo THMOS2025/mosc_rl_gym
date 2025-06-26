@@ -44,47 +44,15 @@
         <joint type='slide' axis='0 1 0' limited='false' />
         <joint type='slide' axis='0 0 1' limited='false' />
         <geom type="mesh" rgba="1 1 1 1" mesh="body" />
-        <inertial pos="-0.015528 8.5936E-05	0.075987" quat="1 0 0 0" mass="6.3113" diaginertia="0.077442 0.059944 0.03406" />
-        <body name="neck" pos="-0.00499961 0 0.2301" quat="0.707107 0 0 0.707107">
-            <inertial pos="1.95467e-05 8.24112e-05 0.0373619" quat="0.999021 -0.00783606 -0.015633 -0.0406329" mass="0.225362" diaginertia="0.000108188 0.000103137 7.38934e-05" />
-            <!-- <joint name="b_n" pos="0 0 0" axis="0 0 -1" /> -->
-            <geom type="mesh" rgba="1 1 1 1" mesh="neck" />
-            <body name="head" pos="-0.0191493 0 0.0424996" quat="0.5 0.5 -0.5 -0.5">
-                <inertial pos="-0.00153335 0.0550979 -0.0177266" quat="0.9997 0.0155182 0.000196967 0.0189515" mass="0.312674" diaginertia="0.000845202 0.000792646 0.000141705" />
-                <!-- <joint name="n_h" pos="0 0 0" axis="0 0 1" /> -->
-                <geom type="mesh" rgba="1 1 1 1" mesh="head" />
-            </body>
-        </body>
-        <body name="Rshoulder" pos="-0.01 -0.101 0.1821" quat="0 0 0.707107 0.707107">
-            <inertial pos="0.0045128 3.9857e-05 -0.043497" quat="0.687694 -0.136177 -0.136176 0.699992" mass="0.46181" diaginertia="0.000286045 0.000272982 0.000220713" />
-            <!-- <joint name="b_Rs" pos="0 0 0" axis="0 0 -1" /> -->
-            <geom type="mesh" rgba="1 1 1 1" mesh="Rshoulder" />
-            <body name="Rarm" pos="-0.0209999 -5.20848e-05 -0.049" quat="0.707106 0.000876893 0.707106 -0.000876893">
-                <inertial pos="0.12307 0.00022433 0.015476" quat="0.549953 0.438888 0.42888 0.56656" mass="0.72685" diaginertia="0.00165704 0.00162754 0.000387868" />
-                <!-- <joint name="Rs_Ra" pos="0 0 0" axis="0 0 1" /> -->
-                <geom type="mesh" rgba="1 1 1 1" mesh="Rarm" />
-                <body name="Rhand" pos="0.14 0.03135 0.021" quat="0.67103346 0.22296658 0.22296658 -0.67103346">
-                    <inertial pos="-0.11427 -6.7327e-07 0.0028051" quat="1.73503e-05 0.690192 1.46636e-05 0.723626" mass="0.28189" diaginertia="0.00146697 0.0014432 5.04168e-05" />
-                    <!-- <joint name="Ra_Rh" pos="0 0 0" axis="0 0 -1" /> -->
-                    <geom type="mesh" rgba="1 1 1 1" mesh="Rhand" />
-                </body>
-            </body>
-        </body>
-        <body name="Lshoulder" pos="-0.01 0.101 0.1821" quat="0 0 0.707107 0.707107">
-            <inertial pos="0.0045129 2.8676e-05 0.043497" quat="0.688559 0.136343 0.136002 0.699143" mass="0.46181" diaginertia="0.000286043 0.000272983 0.000220714" />
-            <!-- <joint name="b_Ls" pos="0 0 0" axis="0 0 -1" /> -->
-            <geom type="mesh" rgba="1 1 1 1" mesh="Lshoulder" />
-            <body name="Larm" pos="-0.021 0 0.049" quat="0.707107 0 0.707107 0">
-                <inertial pos="-0.1231 0.00022433 0.015507" quat="0.426386 0.569398 0.547137 0.44116" mass="0.72685" diaginertia="0.00165815 0.00162843 0.000387914" />
-                <!-- <joint name="Ls_La" pos="0 0 0" axis="0 0 1" /> -->
-                <geom type="mesh" rgba="1 1 1 1" mesh="Larm" />
-                <body name="Lhand" pos="-0.14 0.03135 0.021" quat="0.707107 0.707107 0 0">
-                    <inertial pos="-0.11427 3.38e-07 -0.0028052" quat="0 0.723626 0 0.690192" mass="0.2819" diaginertia="0.00146697 0.0014432 5.04188e-05" />
-                    <!-- <joint name="La_Lh" pos="0 0 0" axis="0 0 -1" /> -->
-                    <geom type="mesh" rgba="1 1 1 1" mesh="Lhand" />
-                </body>
-            </body>
-        </body>
+        <geom pos="-0.00499961 0 0.2301" quat="0.707107 0 0 0.707107" type="mesh" rgba="1 1 1 1" mesh="neck" />
+        <geom pos="-0.00499961 -0.0191493 0.2726" quat="0.707107 0.707107 0 0" type="mesh" rgba="1 1 1 1" mesh="head" />
+        <geom pos="-0.01 -0.101 0.1821" quat="0 0 0.707107 0.707107" type="mesh" rgba="1 1 1 1" mesh="Rshoulder" />
+        <geom pos="0.0109999 -0.15 0.182048" quat="0 -0.707107 0 0.707107" type="mesh" rgba="1 1 1 1" mesh="Rarm" />
+        <geom pos="-0.0100001 -0.18135 0.0420479" quat="0.316831 0.316831 0.632153 -0.632153" type="mesh" rgba="1 1 1 1" mesh="Rhand" />
+        <geom pos="-0.01 0.101 0.1821" quat="0 0 0.707107 0.707107" type="mesh" rgba="1 1 1 1" mesh="Lshoulder" />
+        <geom pos="0.011 0.15 0.1821" quat="-0.707107 0 0.707107 0" type="mesh" rgba="1 1 1 1" mesh="Larm" />
+        <geom pos="-0.01 0.18135 0.0421" quat="0.316831 0.316831 0.632153 -0.632153" type="mesh" rgba="1 1 1 1" mesh="Lhand" />
+
         <body name="Rhip" pos="-0.015 -0.0672 -0.0399" quat="0 0 0.707107 0.707107">
             <inertial pos="0.00046534 -4.8738e-06 -0.043634" quat="0.998704 0.00021969 0.0505891 0.00561917" mass="0.68971" diaginertia="0.000521793 0.000513959 0.000411928" />
             <joint name="b_Rh" pos="0 0 0" axis="0 0 1" />
