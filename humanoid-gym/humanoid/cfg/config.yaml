@@ -27,7 +27,6 @@ domain_rand:
   kd_rand_ratio: 0.1
   torque_rand_ratio: 0.0 # 98% -100% torque
 
-  push_robots: True
   push_prop: 1
   push_interval_s: 4
   max_push_vel_xy: 0.3
