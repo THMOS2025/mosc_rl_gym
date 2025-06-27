@@ -33,6 +33,8 @@
 import os
 from typing import Tuple
 from datetime import datetime
+from isaacgym import gymapi
+from isaacgym import gymutil
 
 from humanoid.algo import VecEnv
 from humanoid.algo import OnPolicyRunner
@@ -41,6 +43,25 @@ from humanoid import LEGGED_GYM_ROOT_DIR, LEGGED_GYM_ENVS_DIR
 from .helpers import get_args, update_cfg_from_args, class_to_dict, get_load_path, set_seed, parse_sim_params
 from humanoid.envs.custom.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
+from omegaconf import DictConfig
+from omegaconf import OmegaConf
+
+def recursive_override_class_cfg(class_cfg, override_dict, path=""):
+    # 将 DictConfig 转换为普通字典
+    if hasattr(override_dict, '_content'):
+        override_dict = OmegaConf.to_container(override_dict, resolve=True)
+    
+    for k, v in override_dict.items():
+        current_path = f"{path}.{k}" if path else k
+        
+        if isinstance(v, dict):
+            if hasattr(class_cfg, k):
+                target_obj = getattr(class_cfg, k)
+                recursive_override_class_cfg(target_obj, v, current_path)
+        else:
+            if hasattr(class_cfg, k):
+                setattr(class_cfg, k, v)
+            
 class TaskRegistry():
     def __init__(self):
         self.task_classes = {}
@@ -160,5 +181,114 @@ class TaskRegistry():
             runner.load(resume_path, load_optimizer=False)
         return runner, train_cfg
 
+
+
+
+    def build_default_args(self, args, hydra_cfg):
+        # 基本参数
+        args.pipeline = "gpu"
+        args.graphics_device_id = 0
+
+        # 物理引擎互斥组
+        args.flex = False
+        args.physx = True
+
+        args.num_threads = 0
+        args.subscenes = 0
+        args.slices = None
+
+        # 解析 sim_device
+        args.sim_device_type, args.compute_device_id = gymutil.parse_device_str(hydra_cfg.sim_device)
+        pipeline = args.pipeline.lower()
+
+        assert (pipeline == 'cpu' or pipeline in ('gpu', 'cuda')), \
+            f"Invalid pipeline '{args.pipeline}'. Should be either cpu or gpu."
+        args.use_gpu_pipeline = (pipeline in ('gpu', 'cuda'))
+
+        # 逻辑处理
+        if args.sim_device_type != 'cuda' and args.flex:
+            print("Can't use Flex with CPU. Changing sim device to 'cuda:0'")
+            args.sim_device = 'cuda:0'
+            args.sim_device_type, args.compute_device_id = gymutil.parse_device_str(hydra_cfg.sim_device)
+
+        if (args.sim_device_type != 'cuda' and pipeline == 'gpu'):
+            print("Can't use GPU pipeline with CPU Physics. Changing pipeline to 'CPU'.")
+            args.pipeline = 'CPU'
+            args.use_gpu_pipeline = False
+
+        # 默认物理引擎
+        args.physics_engine = gymapi.SIM_PHYSX
+        args.use_gpu = (args.sim_device_type == 'cuda')
+
+
+        if args.slices is None:
+            args.slices = args.subscenes
+
+        return args
+
+
+    def make_env_hydra(self, name, hydra_cfg=None, env_cfg=None):
+        """
+        hydra_cfg: DictConfig或dict，优先级高于env_cfg
+        env_cfg: class-based config，如 LeggedRobotCfg
+        """
+        if env_cfg is None:
+            env_cfg, _ = self.get_cfgs(name)  # class-based默认config
+        recursive_override_class_cfg(env_cfg, hydra_cfg)
+        # import pdb;pdb.set_trace()
+        set_seed(env_cfg.seed)
+        sim_params = {"sim": class_to_dict(env_cfg.sim)}
+
+        env_cfg = self.build_default_args(env_cfg, hydra_cfg)
+            
+        
+        sim_params = parse_sim_params(env_cfg, sim_params)
+        # import pdb;pdb.set_trace()
+        # 4. 实例化环境
+        env = self.get_task_class(name)(
+            cfg=env_cfg,
+            sim_params=sim_params,
+            physics_engine=gymapi.SIM_PHYSX,
+            sim_device=getattr(hydra_cfg, "sim_device", "cuda:0") if hydra_cfg else "cuda:0",
+            headless=getattr(hydra_cfg, "headless", False) if hydra_cfg else False
+        )
+        self.env_cfg_for_wandb = env_cfg
+        return env, env_cfg
+    
+    def make_alg_runner_hydra(self, env, name=None, hydra_cfg=None, train_cfg=None, log_root="default"):
+        """
+        hydra_cfg: DictConfig或dict，优先级高于train_cfg
+        train_cfg: class-based config，如 LeggedRobotCfgPPO
+        """
+        if train_cfg is None:
+            if name is None:
+                raise ValueError("Either 'name' or 'train_cfg' must be not None")
+            _, train_cfg = self.get_cfgs(name)  # class-based默认train_cfg
+        recursive_override_class_cfg(train_cfg, hydra_cfg)
+        # 日志路径
+        if log_root=="default":
+            log_root = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name)
+            log_dir = os.path.join(log_root, datetime.now().strftime('%b%d_%H-%M-%S') + '_' + train_cfg.runner.run_name)
+        elif log_root is None:
+            log_dir = None
+        else:
+            log_dir = os.path.join(log_root, datetime.now().strftime('%b%d_%H-%M-%S') + '_' + train_cfg.runner.run_name)
+        # 初始化Runner
+        train_cfg_dict = class_to_dict(train_cfg)
+        env_cfg_dict = class_to_dict(self.env_cfg_for_wandb)
+        all_cfg = {**train_cfg_dict, **env_cfg_dict}
+        runner_class = eval(train_cfg_dict["runner_class_name"])
+        rl_device = getattr(hydra_cfg, "rl_device", "cuda:0") if hydra_cfg else "cuda:0"
+        runner = runner_class(env, all_cfg, log_dir, device=rl_device)
+        # resume模型
+        resume = train_cfg.runner.resume
+        if resume:
+            resume_path = get_load_path(log_root, load_run=train_cfg.runner.load_run, checkpoint=train_cfg.runner.checkpoint)
+            print(f"Loading model from: {resume_path}")
+            runner.load(resume_path, load_optimizer=False)
+        return runner, train_cfg
+    
+    
+    
 # make global task registry
 task_registry = TaskRegistry()

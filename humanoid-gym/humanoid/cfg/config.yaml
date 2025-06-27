@@ -1,0 +1,79 @@
+task: 'humanoid_ppo'
+headless: true
+rl_device: "cuda:0"
+sim_device: "cuda:0"
+run_name: ''
+seed: 5
+
+# 只写你想覆盖的部分，其余使用类默认值
+env:
+  num_envs: 4096
+
+terrain:
+  mesh_type: 'trimesh'
+
+commands:
+  ranges:
+    lin_vel_x: [-1.0, 1.5]   # min max [m/s]
+    lin_vel_y: [-1.0, 1.0]   # min max [m/s]
+    ang_vel_z: [-1.0, 1.0]   # min max [rad/s]
+
+domain_rand:
+  push_robots: True
+  add_com_x: [-0.040,0.040]
+  add_com_y: [-0.040,0.040]
+  add_com_z: [-0.040,0.040]
+  kp_rand_ratio: 0.2
+  kd_rand_ratio: 0.1
+  torque_rand_ratio: 0.0 # 98% -100% torque
+
+  push_robots: True
+  push_prop: 1
+  push_interval_s: 4
+  max_push_vel_xy: 0.3
+  max_push_ang_vel: 0.6 
+
+rewards:
+  min_dist: 0.3
+  max_dist: 0.6
+  target_joint_pos_scale: 0.5
+  target_feet_height: 0.05
+  ref_pos_dir: [-1, 1, -1, -1, 1, -1]
+  cycle_time: 0.8
+  double_stand_phase: 0.5
+  only_positive_rewards: true
+  max_contact_force: 300
+  tracking_sigma: 0.5
+
+  scales:
+    termination: -100
+    joint_pos: 1.2       
+    feet_orientation: 1.0
+    feet_clearance: 2.0
+    tracking_lin_vel: 3.0 
+    tracking_ang_vel: 0.5  
+    feet_distance: 0.2
+    foot_slip: -0.05
+    feet_contact_forces: -0.01
+    orientation: 1.2      
+    action_smoothness: -0.01
+    torques: -0.00001
+    dof_vel: -0.00001
+    dof_acc: -0.000000001
+
+noise:
+  add_noise: true
+  noise_level: 0.6
+
+viewer:
+  debug_viz: false
+
+# PPO
+runner:
+  max_iterations: 2000
+  save_interval: 400
+  run_name: ''
+  resume: true
+  load_run: 'Jun20_18-06-04_v3'
+  checkpoint: 3600
+  resume_path: null

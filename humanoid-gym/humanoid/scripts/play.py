@@ -39,56 +39,62 @@ from humanoid import LEGGED_GYM_ROOT_DIR
 # import isaacgym
 from humanoid.envs import *
 from humanoid.utils import  get_args, export_policy_as_jit, task_registry, Logger
+from humanoid.utils.task_registry import recursive_override_class_cfg
 from isaacgym.torch_utils import *
 
+import hydra
 import torch
 from tqdm import tqdm
 from datetime import datetime
 
+    
 
+config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "cfg")
+@hydra.main(config_path=config_path, config_name="play")
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
-    # override some parameters for testing
-    env_cfg.env.num_envs = 20
-    env_cfg.sim.max_gpu_contact_pairs = 2**10
-    # env_cfg.terrain.mesh_type = 'trimesh'
-    env_cfg.terrain.mesh_type = 'plane'
-    env_cfg.terrain.num_rows = 5
-    env_cfg.terrain.num_cols = 5    
-    env_cfg.terrain.max_init_terrain_level = 2
-    env_cfg.noise.add_noise = True
-    env_cfg.domain_rand.push_robots = False 
-    env_cfg.domain_rand.joint_angle_noise = 0.
-    env_cfg.noise.curriculum = False
-    env_cfg.asset.test_ref_dof = False
-    env_cfg.asset.disable_gravity = False
-    env_cfg.asset.fix_base_link = False
-    env_cfg.noise.noise_level = 0.5
-    train_cfg.runner.resume = True
-    train_cfg.runner.load_run = -1
-    train_cfg.runner.checkpoint = -1
-    env_cfg.domain_rand.add_com_x = [-0.000,0.000]
-    env_cfg.domain_rand.add_com_y = [-0.000,0.000]
-    env_cfg.domain_rand.add_com_z = [-0.000,0.000]  
-    
-    env_cfg.domain_rand.kp_rand_ratio = 0.000
-    env_cfg.domain_rand.kd_rand_ratio = 0.000
-    env_cfg.domain_rand.torque_rand_ratio = 0.00
-    stop_state_log = 1000 # number of steps before plotting states
-    start_plot = 0
-    env_cfg.viewer.debug_viz = True
 
-    train_cfg.seed = 126
-    print("train_cfg.runner_class_name:", train_cfg.runner_class_name)
+    recursive_override_class_cfg(env_cfg, args)
+    recursive_override_class_cfg(train_cfg, args)
+    # override some parameters for testing
+    args.env.num_envs = 20
+    # env_cfg.terrain.mesh_type = 'trimesh'
+    args.terrain.mesh_type = 'plane'
+    args.terrain.num_rows = 5
+    args.terrain.num_cols = 5    
+    args.terrain.max_init_terrain_level = 2
+    args.noise.add_noise = True
+    args.domain_rand.push_robots = False 
+    # args.domain_rand.joint_angle_noise = 0.
+    # args.noise.curriculum = False
+    # args.asset.test_ref_dof = False
+    # args.asset.disable_gravity = False
+    # args.asset.fix_base_link = False
+    args.noise.noise_level = 0.5
+    # args.runner.resume = True
+    # args.runner.load_run = -1
+    # args.runner.checkpoint = -1
+    args.domain_rand.add_com_x = [-0.000,0.000]
+    args.domain_rand.add_com_y = [-0.000,0.000]
+    args.domain_rand.add_com_z = [-0.000,0.000]  
+    
+    args.domain_rand.kp_rand_ratio = 0.000
+    args.domain_rand.kd_rand_ratio = 0.000
+    args.domain_rand.torque_rand_ratio = 0.00
+    args.viewer.debug_viz = True
+
+    args.seed = 126
     
     
     # train_cfg.runner.load_run = 'Jun20_18-06-04_v3'
     # train_cfg.runner.checkpoint = 3600
     
-    
-    if train_cfg.runner.load_run == -1:
+    args.run_name = args.runner.run_name
+    if args.runner.load_run == -1:
         # search the run name in the MOSC directory
-        root_dir = "./humanoid-gym/logs/MOSC/"
+        project_root = os.path.realpath(__file__).split('MOSC_RL_GYM')[0] + 'MOSC_RL_GYM' + os.sep
+        root_dir = os.path.join(project_root, 'humanoid-gym/logs/MOSC')
+        
         load_run = None
         latest_time = -1
 
@@ -99,12 +105,13 @@ def play(args):
                 if mtime > latest_time:
                     latest_time = mtime
                     load_run = d
-        train_cfg.runner.load_run = load_run
-
+        args.runner.load_run = load_run
         print("find dir:", load_run)
         
         
 
+    stop_state_log = 1000 # number of steps before plotting states
+    start_plot = 0
 
     if RECDATA:
         log_dir_path = LEGGED_GYM_ROOT_DIR +'/logs/data_log/' + args.run_name + '/'
@@ -144,7 +151,7 @@ def play(args):
 
     # prepare environment
     print("env prepare")
-    env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
+    env, _ = task_registry.make_env_hydra(name=args.task, hydra_cfg=args)
     print("env is ready")
     env.set_camera(env_cfg.viewer.pos, env_cfg.viewer.lookat)
 
@@ -152,7 +159,7 @@ def play(args):
 
     # load policy
     train_cfg.runner.resume = True
-    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
+    ppo_runner, train_cfg = task_registry.make_alg_runner_hydra(env=env, name=args.task, hydra_cfg=args)
     policy = ppo_runner.get_inference_policy(device=env.device)
     
     # export policy as a jit module (used to run it from C++)
@@ -292,5 +299,6 @@ if __name__ == '__main__':
     RECDATA = True
     PLOT = False
     FIX_COMMAND = True
-    args = get_args()
-    play(args)
+    # args = get_args()
+    # play(args)
+    play()

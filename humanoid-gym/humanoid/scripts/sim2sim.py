@@ -297,7 +297,7 @@ def run_mujoco(policy, cfg):
 
 
 class cmd:
-    vx = 0.3
+    vx = 0.2
     vy = 0.0
     az = 0.0
 
@@ -321,7 +321,7 @@ class Sim2simCfg():
         clip_actions = 18.
         
     class sim_config:
-        mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/MOSC0516/MOSC_UH_point_feet.xml'
+        mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/MOSC0516/MOSC_OL_up_hand.xml'
         sim_duration = 2000 * 0.01
         dt = 0.001
         decimation = 20

@@ -1,0 +1,2 @@
+python humanoid-gym/humanoid/scripts/train.py runner.run_name=v3_t7 runner.max_iterations=2000 headless=true rl_device="cuda:0" rewards.scales.joint_pos=1.2 rewards.scales.termination=-200 rewards.scales.tracking_lin_vel=4.5
+python humanoid-gym/humanoid/scripts/train.py runner.run_name=v3_t7 runner.max_iterations=2000 headless=true rl_device="cuda:0" rewards.scales.joint_pos=1.2 rewards.scales.termination=-200 rewards.scales.tracking_lin_vel=4.5

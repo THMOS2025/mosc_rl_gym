@@ -29,6 +29,8 @@ humanoid_gym
 
 - `cd humanoid-gym && pip install -e .`
 
+pip install hydra-core
+
 ### train and play
 
 train
@@ -50,3 +52,7 @@ sim2sim
 python humanoid-gym/humanoid/scripts/sim2sim.py --run_name v1 
 ```
 
+```bash
+python humanoid-gym/humanoid/scripts/train.py runner.run_name=v3_s5 runner.max_iterations=2000 headless=true rl_device="cuda:0"
+python humanoid-gym/humanoid/scripts/play.py rl_device="cuda:0" headless=false runner.resume=true runner.load_run=-1 runner.checkpoint=-1 env.num_envs=20 runner.run_name=v3_t7 
+```

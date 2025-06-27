@@ -57,7 +57,7 @@ class LeggedRobotCfg(BaseConfig):
         torque_limit = 0.85
 
     class asset:
-        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/MOSC0516/MOSC_UH_point_feet.urdf'  
+        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/MOSC0516/MOSC_0516_offset_up_hand.urdf'  
         name = "MOSC"
         foot_name = "foot"
         # terminate_after_contacts_on = ['base_link','hip_yaw','hip_roll','thigh','calf']
