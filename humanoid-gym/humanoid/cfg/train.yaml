@@ -11,6 +11,7 @@ env:
 
 terrain:
   mesh_type: 'trimesh'
+  # mesh_type: 'plane'
 
 commands:
   ranges:

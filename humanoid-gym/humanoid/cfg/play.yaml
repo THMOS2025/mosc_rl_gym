@@ -1,33 +1,41 @@
 task: 'humanoid_ppo'
-headless: true
+headless: false
 rl_device: "cuda:0"
 sim_device: "cuda:0"
 run_name: ''
-seed: 125
+seed: 126
 
 # 只写你想覆盖的部分，其余使用类默认值
 env:
   num_envs: 20
 
+sim:
+  physx:
+    max_gpu_contact_pairs: 2048
+    # max_gpu_contact_pairs: 8388608
+
+
 terrain:
   mesh_type: 'plane'
   num_rows: 5
   num_cols: 5
-  max_init_terrain_level: 2
+  max_init_terrain_level: 5
 
 commands:
   ranges:
-    lin_vel_x: [-1.0, 1.5]   # min max [m/s]
-    lin_vel_y: [-1.0, 1.0]   # min max [m/s]
+    lin_vel_x: [-0.4, 0.8]   # min max [m/s]
+    lin_vel_y: [-0.4, 0.4]   # min max [m/s]
     ang_vel_z: [-1.0, 1.0]   # min max [rad/s]
 
 domain_rand:
-  push_robots: True
-  add_com_x: [-0.040,0.040]
-  add_com_y: [-0.040,0.040]
-  add_com_z: [-0.040,0.040]
-  kp_rand_ratio: 0.2
-  kd_rand_ratio: 0.1
+  randomize_friction: false
+  randomize_base_mass: false
+  push_robots: true
+  add_com_x: [-0.000,0.000]
+  add_com_y: [-0.000,0.000]
+  add_com_z: [-0.000,0.000]
+  kp_rand_ratio: 0.0
+  kd_rand_ratio: 0.0
   torque_rand_ratio: 0.0 # 98% -100% torque
 
 rewards:
@@ -60,10 +68,10 @@ rewards:
 
 noise:
   add_noise: true
-  noise_level: 0.6
+  noise_level: 0.5
 
 viewer:
-  debug_viz: false
+  debug_viz: true
 
 # PPO
 runner:

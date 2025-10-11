@@ -136,3 +136,41 @@ class Logger:
     def __del__(self):
         if self.plot_process is not None:
             self.plot_process.kill()
+            
+            
+def print_config_simple(obj, name="config", indent=0):
+    """
+    简化版配置打印
+    """
+    if indent == 0:
+        print("=" * 60)
+        print(f"{name} 结构:")
+        print("=" * 60)
+    
+    prefix = "  " * indent
+    print(f"{prefix}{name}: {type(obj).__name__}")
+    
+    # 获取所有非私有、非方法属性
+    for attr_name in sorted(dir(obj)):
+        if not attr_name.startswith('_'):
+            try:
+                attr_value = getattr(obj, attr_name)
+                if not callable(attr_value):
+                    # 判断是否需要递归
+                    if (hasattr(attr_value, '__dict__') or 
+                        isinstance(attr_value, type) or
+                        (hasattr(attr_value, '__module__') and 'config' in str(attr_value.__module__).lower())):
+                        # 递归打印
+                        print_config_simple(attr_value, attr_name, indent + 1)
+                    else:
+                        # 直接打印值
+                        if isinstance(attr_value, (list, tuple)) and len(attr_value) > 5:
+                            display_value = f"[{attr_value[0]}, ..., {attr_value[-1]}] (长度: {len(attr_value)})"
+                        else:
+                            display_value = str(attr_value)
+                        print(f"{prefix}  {attr_name}: {display_value}")
+            except:
+                continue
+    
+    if indent == 0:
+        print("=" * 60)

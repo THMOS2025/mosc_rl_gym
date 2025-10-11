@@ -38,7 +38,7 @@ from humanoid import LEGGED_GYM_ROOT_DIR
 
 # import isaacgym
 from humanoid.envs import *
-from humanoid.utils import  get_args, export_policy_as_jit, task_registry, Logger
+from humanoid.utils import get_args, export_policy_as_jit, task_registry, Logger, print_config_simple
 from humanoid.utils.task_registry import recursive_override_class_cfg
 from isaacgym.torch_utils import *
 
@@ -56,34 +56,7 @@ def play(args):
 
     recursive_override_class_cfg(env_cfg, args)
     recursive_override_class_cfg(train_cfg, args)
-    # override some parameters for testing
-    args.env.num_envs = 20
-    # env_cfg.terrain.mesh_type = 'trimesh'
-    args.terrain.mesh_type = 'plane'
-    args.terrain.num_rows = 5
-    args.terrain.num_cols = 5    
-    args.terrain.max_init_terrain_level = 2
-    args.noise.add_noise = True
-    args.domain_rand.push_robots = False 
-    # args.domain_rand.joint_angle_noise = 0.
-    # args.noise.curriculum = False
-    # args.asset.test_ref_dof = False
-    # args.asset.disable_gravity = False
-    # args.asset.fix_base_link = False
-    args.noise.noise_level = 0.5
-    # args.runner.resume = True
-    # args.runner.load_run = -1
-    # args.runner.checkpoint = -1
-    args.domain_rand.add_com_x = [-0.000,0.000]
-    args.domain_rand.add_com_y = [-0.000,0.000]
-    args.domain_rand.add_com_z = [-0.000,0.000]  
     
-    args.domain_rand.kp_rand_ratio = 0.000
-    args.domain_rand.kd_rand_ratio = 0.000
-    args.domain_rand.torque_rand_ratio = 0.00
-    args.viewer.debug_viz = True
-
-    args.seed = 126
     
     
     # train_cfg.runner.load_run = 'Jun20_18-06-04_v3'
@@ -153,6 +126,7 @@ def play(args):
     print("env prepare")
     env, _ = task_registry.make_env_hydra(name=args.task, hydra_cfg=args)
     print("env is ready")
+    print_config_simple(env_cfg, "env_cfg")
     env.set_camera(env_cfg.viewer.pos, env_cfg.viewer.lookat)
 
     obs = env.get_observations()
@@ -160,7 +134,10 @@ def play(args):
     # load policy
     train_cfg.runner.resume = True
     ppo_runner, train_cfg = task_registry.make_alg_runner_hydra(env=env, name=args.task, hydra_cfg=args)
+    print_config_simple(train_cfg, "train_cfg")
     policy = ppo_runner.get_inference_policy(device=env.device)
+    
+
     
     # export policy as a jit module (used to run it from C++)
     if EXPORT_POLICY:
@@ -295,8 +272,8 @@ def play(args):
 
 if __name__ == '__main__':
     EXPORT_POLICY = True
-    RENDER = True
-    RECDATA = True
+    RENDER = False
+    RECDATA = False
     PLOT = False
     FIX_COMMAND = True
     # args = get_args()

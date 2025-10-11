@@ -224,7 +224,7 @@ def run_mujoco(policy, cfg):
 
     if REC:
         global data_rec
-    for _ in tqdm(range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)), desc="Simulating..."):
+    for _step in tqdm(range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)), desc="Simulating..."):
 
         # Obtain an observation
         q, dq, omega_base, quat, v_base = get_obs(data, cfg)
@@ -235,7 +235,11 @@ def run_mujoco(policy, cfg):
         if count_lowlevel % cfg.sim_config.decimation == 0:
             eu_ang = quaternion_to_euler_array(quat)
             eu_ang[eu_ang > math.pi] -= 2 * math.pi
+            eu_ang[:3] *= 1
             
+            # omega_base = np.zeros_like(omega_base)
+            # eu_ang = np.zeros_like(eu_ang)
+
             # add noise
             # eu_ang = eu_ang + np.random.randn(*eu_ang.shape) * 0.12 * 0.6
             # omega_base = omega_base + np.random.randn(*omega_base.shape) * 0.12 * 0.6
@@ -264,11 +268,19 @@ def run_mujoco(policy, cfg):
 
             action[:] = policy(torch.tensor(policy_input))[0].detach().numpy()
             action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)  
+            
             # print(policy_input)
             # print(action)
             # time.sleep(100.0)
             
             target_q = action * cfg.control.action_scale + action_offset 
+            
+            alpha = 0.8
+            if _step != 0:
+                target_q = alpha * target_q + (1 - alpha) * last_target_q
+            last_target_q = target_q.copy()
+            
+            
             # target_q[4] = 0.3 * np.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time * 0.1)
             # target_q[10] = -0.3 * np.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time * 0.1)  
             # print([q[3]/3.141593*180,q[9]/3.141593*180])
@@ -297,7 +309,7 @@ def run_mujoco(policy, cfg):
 
 
 class cmd:
-    vx = 0.2
+    vx = 0.3
     vy = 0.0
     az = 0.0
 

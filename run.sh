@@ -1,13 +1,13 @@
-python humanoid-gym/humanoid/scripts/train.py \
-  runner.run_name=v3_t8 \
-  runner.max_iterations=2000 \
-  headless=true \
-  rl_device="cuda:0" \
-  rewards.scales.joint_pos=1.2 \
-  rewards.scales.termination=-150 \
-  rewards.scales.tracking_lin_vel=4.5 \
-  domain_rand.max_push_vel_xy=0.2 \
-  domain_rand.max_push_ang_vel=0.4
+# python humanoid-gym/humanoid/scripts/train.py \
+#   runner.run_name=v3_t8 \
+#   runner.max_iterations=2000 \
+#   headless=true \
+#   rl_device="cuda:0" \
+#   rewards.scales.joint_pos=1.2 \
+#   rewards.scales.termination=-150 \
+#   rewards.scales.tracking_lin_vel=4.5 \
+#   domain_rand.max_push_vel_xy=0.2 \
+#   domain_rand.max_push_ang_vel=0.4
 
 python humanoid-gym/humanoid/scripts/train.py \
   runner.run_name=v3_t9 \
