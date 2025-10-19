@@ -40,7 +40,7 @@ import torch
 from datetime import datetime
 import time
 USD_JOINT_NAMES = ['b_Lh','Lh_Ll','Ll_Ll1','Ll1_Ll2','Ll2_La','La_Lf', 
-                   'b_Rh','Rh_Rl','Rl_Rl1','Rl1_Rl2','Rl2_Ra','Ra_Rf']
+                'b_Rh','Rh_Rl','Rl_Rl1','Rl1_Rl2','Rl2_Ra','Ra_Rf']
 
 
 class Data_log:
@@ -296,7 +296,7 @@ def run_mujoco(policy, cfg):
                     
         # Generate PD control
         tau = pd_control(target_q, q, cfg.robot_config.kps,
-                         target_dq, dq, cfg.robot_config.kds)  # Calc torques
+                        target_dq, dq, cfg.robot_config.kds)  # Calc torques
         tau = np.clip(tau, -cfg.robot_config.tau_limit, cfg.robot_config.tau_limit) # Clamp torques
 
         data.ctrl = tau
@@ -351,7 +351,7 @@ class Sim2simCfg():
         kds = np.array([2.0, 2.0, 2.0, 2.0,1.5,0.3,
                         2.0, 2.0, 2.0, 2.0,1.5,0.3], dtype=np.double) 
 
- 
+
         # kps = np.array([10.0, 10.0,10.0, 10.0, 10, 10.0,
         #                 10.0, 10.0,10.0, 10.0, 10, 10.0], dtype=np.double) 
         # kds = np.array([2.0, 2.0, 2.0, 2.0, 2.0, 2.0,

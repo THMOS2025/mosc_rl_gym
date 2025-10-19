@@ -48,7 +48,7 @@ class LeggedRobotCfg(BaseConfig):
         env_spacing = 3.  # not used with heightfields/trimeshes 
         send_timeouts = True # send time out information to the algorithm
         episode_length_s = 24  # episode length in seconds
-        use_ref_actions = True
+        # use_ref_actions = True  # <-- REMOVED: This parameter was unused in the provided code.
 
     class safety:
         # safety factors
@@ -80,6 +80,8 @@ class LeggedRobotCfg(BaseConfig):
         thickness = 0.01
 
     class terrain:
+        curriculum = True
+        
         # rough terrain only:
         static_friction = 1.0
         dynamic_friction = 1.0
@@ -104,9 +106,12 @@ class LeggedRobotCfg(BaseConfig):
         
     class commands:
         num_commands = 3
-        resampling_time = 4  # time before command are changed[s]
+        resampling_time = 8  # time before command are changed[s]
         # show command direction
         use_debug_lines = True
+        curriculum = True
+        delay_range = [0.0, 0.02]
+        max_curriculum = 1.5 # <-- ADDED: Used in update_command_curriculum but was missing.
         class ranges:
             lin_vel_x = [-1.0, 1.5]   # min max [m/s]
             lin_vel_y = [-1.0, 1.0]   # min max [m/s]
@@ -114,13 +119,17 @@ class LeggedRobotCfg(BaseConfig):
 
 
     class noise:
+        curriculum = True
+        curriculum_offset = 0.1
+        curriculum_decay = 0.999
+        
         add_noise = True
-        noise_level = 0.6    # scales other values
+        noise_level = 1.0    # scales other values
 
         class noise_scales:
-            dof_pos = 0.01
-            dof_vel = 0.8
-            ang_vel = 0.2
+            dof_pos = 0.05
+            dof_vel = 1.5
+            ang_vel = 0.3
             lin_vel = 0.1
             quat = 0.03
 
@@ -187,8 +196,10 @@ class LeggedRobotCfg(BaseConfig):
             contact_collection = 2
 
     class domain_rand:
+        # action_randomization: 0.05 # <-- REMOVED: Duplicate entry
+        
         randomize_friction = True
-        friction_range = [0.3, 0.8]
+        friction_range = [-0.4, 0.6]
         restitution_range = [0.0, 1.0]
         rand_init_pos = [-0.01,0.01]
         rand_init_rot = [-0.01,0.01]
@@ -215,59 +226,54 @@ class LeggedRobotCfg(BaseConfig):
                 
         push_robots = True
         push_prop = 1
-        push_interval_s = 4
-        max_push_vel_xy = 0.3 * 1.2
+        push_interval_s = 12
+        max_push_vel_xy = 1.0
         max_push_ang_vel = 0.6 * 1.2
 
-
-
+        # --- ADDED: Parameters for continuous external disturbances ---
+        randomize_disturbances = True # Flag to enable/disable disturbances
+        max_disturb_force = 10.0      # Max continuous force in N
+        max_disturb_torque = 1.0      # Max continuous torque in Nm
 
     class rewards:
-        #base_height_target = 0.33
-        min_dist = 0.3
-        max_dist = 0.6
-        # put some settings here for LLM parameter tuning
-        target_joint_pos_scale = 0.5        # rad
-        target_feet_height = 0.05            # m
-        ref_pos_dir = [-1, 1, -1, -1, 1, -1]
-        cycle_time = 0.8                      # sec
-        double_stand_phase = 0.5              # 
-        # if true negative total rewards are clipped at zero (avoids early termination problems)
-        only_positive_rewards = True
-        max_contact_force = 300  # forces above this value are penalized
-        tracking_sigma = 0.5 # 0.25
+        # 课程学习设定保持不变
+        curriculum = True
+        curriculum_offset = 0.01
+        curriculum_decay = 0.9999
+        
+        # 通用设定
+        base_height_target = 0.88
+        only_positive_rewards = False 
+        tracking_sigma = 0.25 
+        
+        # --- ADDED: Parameters for gait generation and reference states ---
+        cycle_time = 1.0                  # Gait cycle time in seconds
+        double_stand_phase = 0.1          # Phase duration for double support
+        target_joint_pos_scale = 0.3      # Scale for reference joint motion
+        ref_pos_dir = [1., 1., 1., 1., 1., 1.] # Direction multipliers for ref motion
 
         class scales:
-            termination = -200
-            
-            # reference motion tracking
-            # stage I
-            joint_pos = 1.2 * 1.1
-            feet_orientation = 1.
-            feet_clearance = 2.
-            # tracking_lin_vel = 10.0
-            # tracking_ang_vel = 4.0
-            tracking_lin_vel = 3.0 * 1.5
-            tracking_ang_vel = 0.5 * 1.5
-            #symmetry_act = 0
+            # 核心目标与稳定性
+            termination = -200.0          # 惩罚：任务终止（如摔倒）
+            tracking_lin_vel = 1.5        # 奖励：追踪线速度
+            tracking_ang_vel = 0.75       # 奖励：追踪角速度
+            orientation = -5.0            # 惩罚：身体倾斜
+            lin_vel_z = -2.0              # 惩罚：垂直方向速度过大（跳跃）
+            ang_vel_xy = -0.05            # 惩罚：身体左右晃动
 
-            # gait
-            feet_distance = 0.2
-            # feet_air_time = 0.1
-            foot_slip = -0.05
+            # 步态与接触
+            feet_air_time = 0.5           # 奖励：动态步态（合理的滞空时间）
+            collision = -1.0              # 惩罚：除脚部外的身体碰撞
+            foot_slip = -0.05             # 惩罚：脚部在地面滑动
 
-            # contact
-            feet_contact_forces = -0.01
+            # 能量与消耗
+            torques = -1.0e-5             # 惩罚：力矩消耗
+            dof_vel = -1.5e-5             # 惩罚：关节速度过大
+            dof_acc = -2.5e-7             # 惩罚：关节加速度过大
+            action_rate = -0.01           # 惩罚：动作不平滑
 
-            
-            # base pos
-            orientation = 1.0 * 1.2
-
-            # energy
-            action_smoothness = -1e-2
-            torques = -1e-5
-            dof_vel = -1e-5
-            dof_acc = -1e-9
+            # 极限惩罚
+            dof_pos_limits = -10.0        # 惩罚：关节角度接近或超出限制
 
 
     class normalization:
@@ -312,10 +318,10 @@ class LeggedRobotCfgPPO(BaseConfig):
         # logging
         save_interval = 400  # check for potential saves every this many iterations
         experiment_name = 'MOSC'
-        run_name = ''
+        run_name = 'v10_s1'
         
         # load and resume
-        resume = True
+        resume = False
         
         load_run = 'Jun20_18-06-04_v3' # -1 = last run
         checkpoint = 3600 # -1 = last saved model

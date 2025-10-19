@@ -154,7 +154,7 @@ class LeggedRobot(BaseTask):
             self.sim_device_id, self.graphics_device_id, self.physics_engine, self.sim_params)
         mesh_type = self.cfg.terrain.mesh_type
         if mesh_type in ['heightfield', 'trimesh']:
-            self.terrain = HumanoidTerrain(self.cfg.terrain, self.num_envs)
+            self.terrain = HumanoidTerrain(self.cfg.terrain, self.num_envs, self.device)
         if mesh_type == 'plane':
             self._create_ground_plane()
         elif mesh_type == 'trimesh':
@@ -255,26 +255,42 @@ class LeggedRobot(BaseTask):
         Args:
             actions (torch.Tensor): Tensor of shape (num_envs, num_actions_per_env)
         """
-        #randomization
-        actions += self.cfg.domain_rand.action_randomization * torch.randn_like(actions) * actions
-        if self.cfg.asset.test_ref_dof:
-            actions = self.ref_dof_pos
+        # --- MODIFIED: 整合 Mevita 的完整动作处理流程与延迟机制 ---
+        if self.cfg.domain_rand.action_randomization > 0:
+            actions += self.cfg.domain_rand.action_randomization * torch.randn_like(actions) * actions
 
+        # 将当前动作存入历史记录中
+        self.actions_history = torch.roll(self.actions_history, shifts=-1, dims=0)
+        self.actions_history[-1] = actions
+
+        # 根据每个环境的随机延迟时间，从历史记录中获取应执行的动作
+        delay_frames = (self.current_actions_delay / self.dt).long()
+        indices = torch.clamp(self.actions_history_length - 1 - delay_frames, 0)
+        actions_delayed = self.actions_history[indices, torch.arange(self.num_envs, device=self.device)]
+
+        # 裁剪动作范围
         clip_actions = self.cfg.normalization.clip_actions
-        self.actions = torch.clip(actions, -clip_actions, clip_actions).to(self.device)
-
-        # step physics and render each frame
+        self.actions = torch.clip(actions, -clip_actions, clip_actions).to(self.device) # 当前帧的无延迟动作 (用于观测)
+        actions_delayed_clipped = torch.clip(actions_delayed, -clip_actions, clip_actions).to(self.device) # 实际执行的延迟动作
+        
+        # 物理模拟循环
         self.render()
-        for i in range(self.cfg.control.decimation):
-            act_u = actions.clone()
-            act_u[self.delay_steps >= i] = self.last_actions[self.delay_steps >= i]
-            self.torques = self._compute_torques(act_u).view(self.torques.shape)
+        for _ in range(self.cfg.control.decimation):
+            self.torques = self._compute_torques(actions_delayed_clipped).view(self.torques.shape)
             self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self.torques))
+            
+            # --- ADDED: 施加持续的外部干扰力/力矩 ---
+            if self.cfg.domain_rand.randomize_disturbances:
+                self.gym.apply_rigid_body_force_tensors(self.sim,
+                                                        gymtorch.unwrap_tensor(self.external_forces),
+                                                        gymtorch.unwrap_tensor(self.external_torques),
+                                                        gymapi.ENV_SPACE)
 
             self.gym.simulate(self.sim)
             if self.device == 'cpu':
                 self.gym.fetch_results(self.sim, True)
             self.gym.refresh_dof_state_tensor(self.sim)
+            
         self.post_physics_step()
 
         # return clipped obs, clipped states (None), rewards, dones and infos
@@ -322,6 +338,12 @@ class LeggedRobot(BaseTask):
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
         self.reset_idx(env_ids)
         self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
+        
+        # --- ADDED: 更新课程学习所需的辅助变量 ---
+        # 累加 x, y, yaw 的追踪误差，用于地形课程的判断
+        self.tracking_error_sum[:, :2] += torch.abs(self.commands[:, :2] - self.base_lin_vel[:, :2])
+        self.tracking_error_sum[:, 2] += torch.abs(self.commands[:, 2] - self.base_ang_vel[:, 2])
+        self.step_counter += 1
 
         self.last_last_actions[:] = torch.clone(self.last_actions[:])
         self.last_actions[:] = self.actions[:]
@@ -351,11 +373,22 @@ class LeggedRobot(BaseTask):
         """
         if len(env_ids) == 0:
             return
+        
+        if self.cfg.terrain.curriculum:
+            self._update_terrain_curriculum(env_ids)
+        if self.cfg.commands.curriculum:
+            self.update_command_curriculum(env_ids)
+        if self.cfg.rewards.curriculum:
+            self.update_reward_curriculum(env_ids)
+        if self.cfg.noise.curriculum:
+            self.update_noise_curriculum(env_ids)
             
         # reset robot states
         self._reset_dofs(env_ids)
         self._reset_root_states(env_ids)
         self._reset_joint_params(env_ids)
+        
+        self._reset_disturbances(env_ids)
         
         self.commands[env_ids,0] = 0.
         self.commands[env_ids,1] = 0.
@@ -373,6 +406,9 @@ class LeggedRobot(BaseTask):
         self.reset_buf[env_ids] = 1
         # fill extras
         self.extras["episode"] = {}
+        
+        self.tracking_error_sum[env_ids] = 0.
+        self.step_counter[env_ids] = 0
 
         for key in self.episode_sums.keys():
             self.extras["episode"]['rew_' + key] = torch.mean(self.episode_sums[key][env_ids]) / self.max_episode_length_s
@@ -662,6 +698,7 @@ class LeggedRobot(BaseTask):
         # not rel but abs
         self.base_loc = self.root_states[:, :2] - self.env_origins[:,:2]
         self.projected_gravity = quat_rotate_inverse(self.base_quat, self.gravity_vec)
+        self.terrain_levels = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
 
         self._set_ori_joint_params()
         self._reset_joint_params(torch.tensor(range(self.num_envs), device=self.device))
@@ -680,6 +717,33 @@ class LeggedRobot(BaseTask):
         for _ in range(self.cfg.env.c_frame_stack):
             self.critic_history.append(torch.zeros(
                 self.num_envs, self.cfg.env.single_num_privileged_obs, dtype=torch.float, device=self.device))
+            
+        # --- ADDED: 为 Mevita 功能添加的缓冲区 ---
+        # 动作延迟相关缓冲区
+        self.actions_delay_range = self.cfg.commands.delay_range
+        # 计算历史缓冲区的长度，需要比最大延迟时间稍长
+        self.actions_history_length = int((self.actions_delay_range[1] + self.dt) / self.dt) + 1
+        self.actions_history = torch.zeros((self.actions_history_length, self.num_envs, self.num_actions), dtype=torch.float, device=self.device)
+        # 为每个环境初始化一个随机的动作延迟时间
+        self.current_actions_delay = torch_rand_float(self.actions_delay_range[0], self.actions_delay_range[1], (self.num_envs, 1), device=self.device).flatten()
+
+        # 外部干扰相关缓冲区 (对所有刚体施加)
+        self.external_forces = torch.zeros((self.num_envs, self.num_bodies, 3), device=self.device)
+        self.external_torques = torch.zeros((self.num_envs, self.num_bodies, 3), device=self.device)
+
+        # 课程学习权重相关缓冲区
+        self.reward_curriculum_weight = torch.ones(self.num_envs, dtype=torch.float, device=self.device)
+        if self.cfg.rewards.curriculum:
+            self.reward_curriculum_weight *= self.cfg.rewards.curriculum_offset
+        
+        self.noise_curriculum_weight = torch.ones(self.num_envs, dtype=torch.float, device=self.device)
+        if self.cfg.noise.curriculum:
+            self.noise_curriculum_weight *= self.cfg.noise.curriculum_offset
+            
+        # 地形课程辅助缓冲区 (用于计算追踪误差)
+        self.step_counter = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self.tracking_error_sum = torch.zeros(self.num_envs, 3, device=self.device) # x, y, yaw 的误差总和
+        
 
     def _prepare_reward_function(self):
         """ Prepares a list of reward functions, which will be called to compute the total reward.
@@ -905,4 +969,85 @@ class LeggedRobot(BaseTask):
             y2 = base_vec[1] + commands_vec[1] 
             z2 = 0.2
             gymutil.draw_line(gymapi.Vec3(x1, y1, z1), gymapi.Vec3(x2, y2, z2), gymapi.Vec3(1, 1, 0), self.gym, self.viewer, self.envs[i])
+            
+# ------------------------------------------------------------------------------------
+    # --- ADDED: 从 Mevita 移植的全新函数 (课程学习与外部干扰) ---
+    # ------------------------------------------------------------------------------------
+
+    def _reset_disturbances(self, env_ids):
+        """
+        为指定的环境重置随机的持续外力与力矩。
+        这些干扰会在每个 step 中持续施加，直到下一次重置。
+        """
+        if self.cfg.domain_rand.randomize_disturbances:
+            max_force = self.cfg.domain_rand.max_disturb_force
+            max_torque = self.cfg.domain_rand.max_disturb_torque
+            
+            # 只在基座 (body index 0) 上施加干扰
+            self.external_forces[env_ids, 0, :] = torch_rand_float(-max_force, max_force, (len(env_ids), 3), device=self.device)
+            self.external_torques[env_ids, 0, :] = torch_rand_float(-max_torque, max_torque, (len(env_ids), 3), device=self.device)
+
+    def _update_terrain_curriculum(self, env_ids):
+        """
+        根据追踪误差来实作地形课程。
+        如果机器人在一个 episode 中的平均追踪误差很小，则提升地形难度。
+        如果误差很大，则降低难度。
+        """
+        if not self.cfg.terrain.curriculum:
+            return
+
+        # 获取那些已经跑了一段时间的环境的 ID
+        valid_steps = self.step_counter[env_ids] > 0
+        if torch.any(valid_steps):
+            valid_env_ids = env_ids[valid_steps]
+            
+            # 计算平均追踪误差 (x, y, yaw)
+            avg_tracking_error = torch.sum(self.tracking_error_sum[valid_env_ids], dim=1) / self.step_counter[valid_env_ids] / 3.0
+            
+            # 根据误差阈值决定是提升还是降低难度
+            move_up = avg_tracking_error < 0.2  # 表现好，增加难度
+            move_down = avg_tracking_error > 0.5 # 表现差，降低难度
+            
+            self.terrain_levels[valid_env_ids] += (1 * move_up - 1 * move_down).long()
+            
+            # 确保地形等级在有效范围内
+            self.terrain_levels[valid_env_ids] = torch.clip(self.terrain_levels[valid_env_ids], 0, self.terrain.cfg.num_rows - 1)
+            
+            # 更新环境的原点到新的地形位置
+            self.env_origins[valid_env_ids] = self.terrain.terrain_origins[self.terrain_levels[valid_env_ids], self.terrain.terrain_types[valid_env_ids]]
+
+    def update_command_curriculum(self, env_ids):
+        """
+        实作指令课程。如果追踪速度的奖励很高，就逐步扩大指令速度的范围。
+        """
+        if not self.cfg.commands.curriculum:
+            return
+
+        # 如果平均追踪奖励超过最大值的 70%，则增加指令范围
+        if "tracking_lin_vel" in self.reward_scales and torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length_s > 0.7:
+            max_vel = self.cfg.commands.max_curriculum
+            self.command_ranges["lin_vel_x"][0] = np.clip(self.command_ranges["lin_vel_x"][0] - 0.1, -max_vel, 0.)
+            self.command_ranges["lin_vel_x"][1] = np.clip(self.command_ranges["lin_vel_x"][1] + 0.1, 0., max_vel)
+            self.command_ranges["lin_vel_y"][0] = np.clip(self.command_ranges["lin_vel_y"][0] - 0.1, -max_vel, 0.)
+            self.command_ranges["lin_vel_y"][1] = np.clip(self.command_ranges["lin_vel_y"][1] + 0.1, 0., max_vel)
+
+    def update_reward_curriculum(self, env_ids):
+        """
+        更新奖励课程的权重。
+        权重会随着时间以指数形式从一个较低的初始值 (offset) 慢慢增长到 1.0。
+        """
+        if self.cfg.rewards.curriculum:
+            # 权重以 decay^n 的形式衰减 "与最大值的差距"，从而使权重自身增长
+            # 这里用一个简化但效果类似的实现：每次更新都乘以 decay
+            self.reward_curriculum_weight = torch.pow(self.reward_curriculum_weight, self.cfg.rewards.curriculum_decay)
+            # 被重置的环境，其权重回到初始值
+            self.reward_curriculum_weight[env_ids] = self.cfg.rewards.curriculum_offset
+
+    def update_noise_curriculum(self, env_ids):
+        """
+        更新噪声课程的权重，逻辑与奖励课程相同。
+        """
+        if self.cfg.noise.curriculum:
+            self.noise_curriculum_weight = torch.pow(self.noise_curriculum_weight, self.cfg.noise.curriculum_decay)
+            self.noise_curriculum_weight[env_ids] = self.cfg.noise.curriculum_offset
 

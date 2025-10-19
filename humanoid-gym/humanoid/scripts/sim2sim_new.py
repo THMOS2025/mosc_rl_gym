@@ -34,26 +34,41 @@ import mujoco, mujoco_viewer
 from tqdm import tqdm
 from collections import deque
 from scipy.spatial.transform import Rotation as R
-try:
-    from humanoid import LEGGED_GYM_ROOT_DIR
-except ImportError:
-    # 如果您没有一个名为humanoid的模块，或者LEGGED_GYM_ROOT_DIR没有在其中定义
-    # 您需要在这里手动设置LEGGED_GYM_ROOT_DIR的路径
-    # 例如: LEGGED_GYM_ROOT_DIR = "/path/to/your/legged_gym"
-    # 为了代码能顺利运行，我们暂时将其设置为当前目录
-    print("Warning: 'humanoid' module not found. Setting 'LEGGED_GYM_ROOT_DIR' to the current working directory.")
-    LEGGED_GYM_ROOT_DIR = os.getcwd()
-import torch
+import csv
 from datetime import datetime
 import time
 import argparse
+
+# --- New Imports for Logging and Plotting ---
+try:
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    PLOTTING_ENABLED = True
+except ImportError:
+    print("Warning: 'pandas' or 'matplotlib' not found. Plotting will be disabled.")
+    print("Please install them using: pip install pandas matplotlib")
+    PLOTTING_ENABLED = False
+
+
+try:
+    from humanoid import LEGGED_GYM_ROOT_DIR
+except ImportError:
+    # If you don't have a module named humanoid, or LEGGED_GYM_ROOT_DIR is not defined in it
+    # you need to set the path to LEGGED_GYM_ROOT_DIR manually here
+    # For example: LEGGED_GYM_ROOT_DIR = "/path/to/your/legged_gym"
+    # For the code to run smoothly, we temporarily set it to the current directory
+    print("Warning: 'humanoid' module not found. Setting 'LEGGED_GYM_ROOT_DIR' to the current working directory.")
+    LEGGED_GYM_ROOT_DIR = os.getcwd()
+
+import torch
+
 
 USD_JOINT_NAMES = ['b_Lh','Lh_Ll','Ll_Ll1','Ll1_Ll2','Ll2_La','La_Lf', 
                    'b_Rh','Rh_Rl','Rl_Rl1','Rl1_Rl2','Rl2_Ra','Ra_Rf']
 
 def euler_to_quaternion(rpy):
     """
-    将欧拉角 (roll, pitch, yaw) 转换为四元数 (w, x, y, z).
+    Convert Euler angles (roll, pitch, yaw) to a quaternion (w, x, y, z).
     """
     roll, pitch, yaw = rpy
     cy = math.cos(yaw * 0.5)
@@ -93,7 +108,7 @@ def quaternion_to_euler_array(quat):
 
 
 def get_obs(data,cfg):
-    '''从MuJoCo数据结构中提取观测值'''
+    '''Extract observations from the MuJoCo data structure'''
     name_list = USD_JOINT_NAMES
     q = np.zeros((cfg.env.num_actions), dtype=np.double)
     dq = np.zeros((cfg.env.num_actions), dtype=np.double)
@@ -110,45 +125,145 @@ def get_obs(data,cfg):
 
 
 def pd_control(target_q, q, kp, target_dq, dq, kd):
-    '''从位置指令计算力矩'''
+    '''Calculate torque from position commands'''
     return (target_q - q) * kp + (target_dq - dq) * kd
 
 def load_data_from_log(log_dir):
-    """从日志文件中加载数据"""
+    """Load data from log files"""
     joint_pos_path = os.path.join(log_dir, 'joint_pos.txt')
     joint_vel_path = os.path.join(log_dir, 'joint_vel.txt')
     imu_path = os.path.join(log_dir, 'base_ang_eul.txt')
     joint_act_path = os.path.join(log_dir, 'joint_act.txt')
-    # 新增: 定义 input_imu.txt 的路径
+    # New: Define the path for input_imu.txt
     imu_ang_vel_path = os.path.join(log_dir, 'input_imu.txt')
 
     joint_pos = np.loadtxt(joint_pos_path, delimiter=',') if os.path.exists(joint_pos_path) else None
     joint_vel = np.loadtxt(joint_vel_path, delimiter=',') if os.path.exists(joint_vel_path) else None
     imu_rpy = np.loadtxt(imu_path, delimiter=',') if os.path.exists(imu_path) else None
     joint_act = np.loadtxt(joint_act_path, delimiter=',') if os.path.exists(joint_act_path) else None
-    # 新增: 加载角速度数据
+    # New: Load angular velocity data
     imu_ang_vel = np.loadtxt(imu_ang_vel_path, delimiter=',') if os.path.exists(imu_ang_vel_path) else None
     
-    # 新增: 返回角速度数据
+    # New: Return angular velocity data
     return joint_pos, joint_vel, imu_rpy, joint_act, imu_ang_vel
 
-def run_mujoco(policy, cfg, mode='policy', log_dir=None, disable_gravity=False):
+def setup_logging(log_dir_base, run_name):
+    """Create a unique subdirectory for the run and return the file path for the CSV."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Create a unique subdirectory for this run, e.g., "run_my_policy_20251011_203945"
+    run_dir_name = f"run_{run_name}_{timestamp}"
+    run_log_dir = os.path.join(log_dir_base, run_dir_name)
+    os.makedirs(run_log_dir, exist_ok=True)
+
+    # The log file will be inside the new subdirectory
+    log_filename = "log_data.csv"
+    log_filepath = os.path.join(run_log_dir, log_filename)
+    
+    headers = ['time']
+    for name in USD_JOINT_NAMES:
+        headers.extend([f'q_{name}', f'tau_{name}', f'action_{name}', f'target_q_{name}'])
+    headers.extend(['omega_x', 'omega_y', 'omega_z', 'roll', 'pitch', 'yaw'])
+    
+    with open(log_filepath, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        
+    return log_filepath
+
+def append_log_data(log_filepath, data_row):
+    """Append a row of data to the CSV log file."""
+    with open(log_filepath, 'a', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(data_row)
+
+def plot_log_data(log_filepath):
+    """Read the log file and generate plots for each joint and IMU data."""
+    if not PLOTTING_ENABLED:
+        print("Plotting is disabled because required libraries are missing.")
+        return
+
+    print(f"Generating plots from {log_filepath}...")
+    df = pd.read_csv(log_filepath)
+    # The log directory is the directory containing the csv file
+    log_dir = os.path.dirname(log_filepath)
+
+    # --- Plot data for each joint individually ---
+    for i, name in enumerate(tqdm(USD_JOINT_NAMES, desc="Generating joint plots")):
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
+        # UPDATED: Added joint index 'i' to the plot title
+        fig.suptitle(f'Joint Data: [{i}] {name}', fontsize=16)
+
+        # Subplot 1: Position (q) and Target Position (target_q)
+        ax1.plot(df['time'], df[f'q_{name}'], label='Measured Position (q)')
+        ax1.plot(df['time'], df[f'target_q_{name}'], label='Target Position (target_q)', linestyle='--', alpha=0.8)
+        ax1.set_ylabel('Angle (rad)')
+        ax1.set_title('Joint Position')
+        ax1.legend()
+        ax1.grid(True)
+
+        # Subplot 2: Torque (tau)
+        ax2.plot(df['time'], df[f'tau_{name}'], label='Applied Torque (tau)', color='orange')
+        ax2.set_ylabel('Torque (Nm)')
+        ax2.set_title('Joint Torque')
+        ax2.legend()
+        ax2.grid(True)
+
+        # Subplot 3: Raw Action
+        ax3.plot(df['time'], df[f'action_{name}'], label='Raw Policy Action', color='green')
+        ax3.set_xlabel('Time (s)')
+        ax3.set_ylabel('Action Value')
+        ax3.set_title('Raw Policy Action')
+        ax3.legend()
+        ax3.grid(True)
+        
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout to make room for suptitle
+        plot_filename = os.path.join(log_dir, f"joint_{name}.png")
+        plt.savefig(plot_filename)
+        plt.close(fig) # Close the figure to free up memory
+
+    # --- Plot IMU Data (combined) ---
+    fig_imu, (ax_imu1, ax_imu2) = plt.subplots(2, 1, figsize=(15, 10), sharex=True)
+    ax_imu1.plot(df['time'], df['roll'], label='Roll')
+    ax_imu1.plot(df['time'], df['pitch'], label='Pitch')
+    ax_imu1.plot(df['time'], df['yaw'], label='Yaw')
+    ax_imu1.set_title('IMU Euler Angles')
+    ax_imu1.set_ylabel('Angle (rad)')
+    ax_imu1.legend()
+    ax_imu1.grid(True)
+
+    ax_imu2.plot(df['time'], df['omega_x'], label='Omega X')
+    ax_imu2.plot(df['time'], df['omega_y'], label='Omega Y')
+    ax_imu2.plot(df['time'], df['omega_z'], label='Omega Z')
+    ax_imu2.set_title('IMU Angular Velocities')
+    ax_imu2.set_xlabel('Time (s)')
+    ax_imu2.set_ylabel('Angular Velocity (rad/s)')
+    ax_imu2.legend()
+    ax_imu2.grid(True)
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(log_dir, "imu_data.png"))
+    plt.close(fig_imu)
+
+    print(f"Plots and log file saved in: {log_dir}")
+
+
+def run_mujoco(policy, cfg, run_name, mode='policy', log_dir=None, disable_gravity=False):
     """
-    使用提供的策略和配置运行Mujoco仿真。
+    Run the Mujoco simulation with the provided policy and configuration.
 
     Args:
-        policy: 用于控制仿真的策略。
-        cfg: 包含仿真设置的配置对象。
+        policy: The policy to control the simulation.
+        cfg: The configuration object containing simulation settings.
+        run_name: The name of the policy run, used for logging directory.
         mode: 'policy', 'observation', 'action', or 'replay'
-        log_dir: 包含日志文件的目录路径
-        disable_gravity (bool): 如果为True，则禁用仿真中的重力。
+        log_dir: Directory containing log files for certain modes.
+        disable_gravity (bool): If True, disables gravity in the simulation.
     """
-    # --- 关键时间参数说明 ---
-    # 物理仿真步长: dt = 0.001s
-    # 高层控制/日志记录降采样率: decimation = 20
-    # 因此，高层控制命令的更新周期以及日志数据的记录间隔为:
+    # --- Key Time Parameters ---
+    # Physics simulation step: dt = 0.001s
+    # High-level control/logging decimation: decimation = 20
+    # Therefore, high-level control and logging interval:
     # high_level_interval = dt * decimation = 0.001s * 20 = 0.02s (50Hz)
-    # 这与从文件读取的数据序列间隔相匹配。
     
     model = mujoco.MjModel.from_xml_path(cfg.sim_config.mujoco_model_path)
     model.opt.timestep = cfg.sim_config.dt
@@ -161,19 +276,16 @@ def run_mujoco(policy, cfg, mode='policy', log_dir=None, disable_gravity=False):
     
     data = mujoco.MjData(model)
 
-    # 新增: 为 imu_ang_vel_log 初始化
     joint_pos_log, joint_vel_log, imu_rpy_log, joint_act_log, imu_ang_vel_log = None, None, None, None, None
     if log_dir:
-        # 新增: 接收返回的角速度数据
         joint_pos_log, joint_vel_log, imu_rpy_log, joint_act_log, imu_ang_vel_log = load_data_from_log(log_dir)
 
-    # 新增: 在 'observation' 模式下检查 imu_ang_vel_log 是否存在
     if mode == 'observation' and (joint_pos_log is None or joint_vel_log is None or imu_rpy_log is None or imu_ang_vel_log is None):
-        raise ValueError("在 'observation' 模式下, 'joint_pos.txt', 'joint_vel.txt', 'base_ang_eul.txt' 和 'input_imu.txt' 必须存在。")
+        raise ValueError("In 'observation' mode, 'joint_pos.txt', 'joint_vel.txt', 'base_ang_eul.txt', and 'input_imu.txt' must exist.")
     if mode == 'action' and joint_act_log is None:
-        raise ValueError("在 'action' 模式下, 'joint_act.txt' 必须存在。")
+        raise ValueError("In 'action' mode, 'joint_act.txt' must exist.")
     if mode == 'replay' and (joint_pos_log is None or imu_rpy_log is None):
-        raise ValueError("在 'replay' 模式下, 'joint_pos.txt' 和 'base_ang_eul.txt' 必须存在。")
+        raise ValueError("In 'replay' mode, 'joint_pos.txt' and 'base_ang_eul.txt' must exist.")
 
     for joint_name, value in cfg.robot_config.init_joint_pos.items():
         joint_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
@@ -197,56 +309,51 @@ def run_mujoco(policy, cfg, mode='policy', log_dir=None, disable_gravity=False):
     count_lowlevel = 0
     log_idx = 0
 
+    # --- Setup Logging ---
+    log_dir_path = os.path.abspath(os.path.join(LEGGED_GYM_ROOT_DIR, '..', 'data_logs'))
+    log_filepath = setup_logging(log_dir_path, run_name)
+    print(f"Logging data to a new folder within: {os.path.dirname(log_filepath)}")
+    
     if mode in ['observation', 'action', 'replay']:
-        # 新增: 将 imu_ang_vel_log 添加到 valid_logs 列表
         valid_logs = [log for log in [joint_pos_log, joint_vel_log, imu_rpy_log, joint_act_log, imu_ang_vel_log] if log is not None]
         if not valid_logs:
-            print(f"警告: 在 '{mode}' 模式下没有提供任何日志文件。仿真将不会运行。")
+            print(f"Warning: No log files provided in '{mode}' mode. Simulation will not run.")
             num_steps = 0
         else:
             num_steps = min(len(log) for log in valid_logs)
         sim_duration_steps = num_steps * cfg.sim_config.decimation
     else:
-        num_steps = 1000
+        num_steps = int(cfg.sim_config.sim_duration / (cfg.sim_config.dt * cfg.sim_config.decimation))
         sim_duration_steps = int(cfg.sim_config.sim_duration / cfg.sim_config.dt)
 
     for _step in tqdm(range(sim_duration_steps), desc=f"Simulating in {mode} mode..."):
-        # --- Replay 模式逻辑 ---
+        # --- Replay Mode Logic ---
         if mode == 'replay':
-            # 在每个高层控制周期（0.02s）的开始，更新机器人的状态
             if _step % cfg.sim_config.decimation == 0:
                 if log_idx < len(joint_pos_log):
-                    # 1. 设置关节位置
                     for i, joint_name in enumerate(cfg.robot_config.name_list):
                         joint_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
                         if joint_id != -1:
                             qpos_adr = model.jnt_qposadr[joint_id]
                             data.qpos[qpos_adr] = joint_pos_log[log_idx, i]
                     
-                    # 2. 设置基座方向
                     if log_idx < len(imu_rpy_log):
-                        # 日志文件提供的是世界坐标系下的RPY（Roll, Pitch, Yaw）欧拉角
                         rpy = imu_rpy_log[log_idx]
-                        # 将RPY欧拉角转换为MuJoCo所需的[w, x, y, z]格式的四元数
                         quat = euler_to_quaternion(rpy)
-                        # 设置基座姿态
                         data.qpos[0:4] = quat
 
                     mujoco.mj_forward(model, data)
                     log_idx += 1
             
             viewer.render()
-            # 减慢回放速度以匹配数据的真实时间间隔(0.02s)
-            # 这里在每个物理仿真步长后都稍作停顿，以获得平滑的视觉效果
             time.sleep(cfg.sim_config.dt) 
             continue
 
-        # --- Policy, Observation, Action 模式逻辑 ---
+        # --- Policy, Observation, Action Mode Logic ---
         if mode == 'observation' and log_idx < len(joint_pos_log):
             q = joint_pos_log[log_idx]
             dq = joint_vel_log[log_idx]
             eu_ang = imu_rpy_log[log_idx]
-            # 修改: 从加载的日志文件中读取 omega_base
             omega_base = imu_ang_vel_log[log_idx]
             quat = euler_to_quaternion(eu_ang)
         else:
@@ -255,22 +362,23 @@ def run_mujoco(policy, cfg, mode='policy', log_dir=None, disable_gravity=False):
         q = q[-cfg.env.num_actions:] 
         dq = dq[-cfg.env.num_actions:]
 
-        # 高层控制循环，频率为 1 / (dt * decimation) = 50Hz
+        # High-level control loop at 50Hz
         if count_lowlevel % cfg.sim_config.decimation == 0:
             if mode != 'observation':
                  eu_ang = quaternion_to_euler_array(quat)
                  eu_ang[eu_ang > math.pi] -= 2 * math.pi
 
-            # ------------------- 策略输入构建 -------------------
+            # --- Build Policy Input ---
             obs_parts = []
-            obs_parts.append(np.array([math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time)])) 
-            obs_parts.append(np.array([math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time)]))
+            current_time = count_lowlevel * cfg.sim_config.dt
+            obs_parts.append(np.array([math.sin(2 * math.pi * current_time / cfg.rewards.cycle_time)])) 
+            obs_parts.append(np.array([math.cos(2 * math.pi * current_time / cfg.rewards.cycle_time)]))
             obs_parts.append(np.array([cmd.vx]))
             obs_parts.append(np.array([cmd.vy]))
             obs_parts.append(np.array([cmd.az]))
-            obs_parts.append((- q - action_offset) * cfg.normalization.obs_scales.dof_pos)
-            obs_parts.append(- dq * cfg.normalization.obs_scales.dof_vel)
-            obs_parts.append(action) # 上一个动作
+            obs_parts.append((q - action_offset) * cfg.normalization.obs_scales.dof_pos)
+            obs_parts.append(dq * cfg.normalization.obs_scales.dof_vel)
+            obs_parts.append(action) # Previous action
             obs_parts.append(omega_base)
             obs_parts.append(eu_ang) 
             obs = np.expand_dims(np.concatenate(obs_parts, axis=-1), axis=0).astype(np.float32)
@@ -283,13 +391,13 @@ def run_mujoco(policy, cfg, mode='policy', log_dir=None, disable_gravity=False):
             for i in range(cfg.env.frame_stack):
                 policy_input[0, i * cfg.env.num_single_obs : (i + 1) * cfg.env.num_single_obs] = hist_obs[i][0, :]
             
-            # ------------------- 动作计算 -------------------
+            # --- Calculate Action ---
             if mode == 'action':
                 if log_idx < len(joint_act_log):
-                    target_q = joint_act_log[log_idx]
+                    target_q = - joint_act_log[log_idx]
                 else:
                     target_q = action_offset
-            else: # policy 和 observation 模式
+            else: # policy and observation modes
                 action[:] = policy(torch.tensor(policy_input))[0].detach().numpy()
                 action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)  
                 target_q = action * cfg.control.action_scale + action_offset
@@ -299,9 +407,17 @@ def run_mujoco(policy, cfg, mode='policy', log_dir=None, disable_gravity=False):
                 target_q = alpha * target_q + (1 - alpha) * last_target_q
             last_target_q = target_q.copy()
             
-            # 如果使用日志文件，则增加索引
             if log_dir and log_idx < num_steps:
                 log_idx += 1
+            
+            # --- Data Logging ---
+            current_log_data = [current_time]
+            for i in range(cfg.env.num_actions):
+                current_log_data.extend([q[i], data.ctrl[i], action[i], target_q[i]])
+            current_log_data.extend(omega_base)
+            current_log_data.extend(eu_ang)
+            append_log_data(log_filepath, current_log_data)
+
 
         target_dq = np.zeros((cfg.env.num_actions), dtype=np.double)
                     
@@ -314,7 +430,9 @@ def run_mujoco(policy, cfg, mode='policy', log_dir=None, disable_gravity=False):
         mujoco.mj_step(model, data)
         viewer.render()
         count_lowlevel += 1
+
     viewer.close()
+    return log_filepath
 
 class cmd:
     vx = 0.0
@@ -339,7 +457,8 @@ class Sim2simCfg():
         clip_actions = 18.
         
     class sim_config:
-        mujoco_model_path = os.path.join(LEGGED_GYM_ROOT_DIR, 'resources/robots/MOSC0516/MOSC_rotaion_test.xml')
+        # mujoco_model_path = os.path.join(LEGGED_GYM_ROOT_DIR, 'resources/robots/MOSC0516/MOSC_rotaion_test.xml')
+        mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/MOSC0516/MOSC_OL_up_hand.xml'
         sim_duration = 20.0
         dt = 0.001
         decimation = 20
@@ -354,9 +473,14 @@ class Sim2simCfg():
         kds = np.array([2.0, 2.0, 2.0, 2.0,1.5,0.3,
                         2.0, 2.0, 2.0, 2.0,1.5,0.3], dtype=np.double) 
         init_joint_pos = {
-            "b_Lh": 0.3, "Lh_Ll": 0.0, "Ll_Ll1": 0.0, "Ll1_Ll2": -0.6, "Ll2_La": 0.3, "La_Lf": 0.0,
-            "b_Rh": -0.3, "Rh_Rl": 0.0, "Rl_Rl1": 0.0, "Rl1_Rl2": 0.6, "Rl2_Ra": -0.3, "Ra_Rf": 0.0,
-        }
+            "b_Lh": 0.3,
+            "Ll1_Ll2": -0.6,
+            "Ll2_La": 0.3,
+
+            "b_Rh": -0.3,
+            "Rl1_Rl2": 0.6,
+            "Rl2_Ra": -0.3,
+            }
         tau_limit = np.array([60.0] * 10 + [10.0] * 2, dtype=np.double)
         
     class control:
@@ -373,19 +497,24 @@ if __name__ == '__main__':
     
     model_path = Sim2simCfg.sim_config.mujoco_model_path
     if not os.path.exists(model_path):
-        print(f"错误: MuJoCo 模型文件未找到: {model_path}")
-        print("请确保 'LEGGED_GYM_ROOT_DIR' 环境变量已正确设置, 或者在脚本中手动修改路径。")
+        print(f"Error: MuJoCo model file not found: {model_path}")
+        print("Please ensure 'LEGGED_GYM_ROOT_DIR' environment variable is set correctly, or modify the path manually in the script.")
         exit()
 
     policy = None
     if args.mode in ['policy', 'observation']:
         policy_path = os.path.join(LEGGED_GYM_ROOT_DIR, "logs/MOSC/exported/policies/policy_" + args.run_name + ".pt")
         if not os.path.exists(policy_path):
-            print(f"错误: 策略文件未找到: {policy_path}")
-            print("请确保策略文件存在于正确的路径。")
+            print(f"Error: Policy file not found: {policy_path}")
+            print("Please ensure the policy file exists at the correct path.")
             exit()
             
         policy = torch.jit.load(policy_path)
-        print(f"从 {policy_path} 加载策略")
+        print(f"Loaded policy from {policy_path}")
 
-    run_mujoco(policy, Sim2simCfg(), mode=args.mode, log_dir=args.log_dir, disable_gravity=args.disable_gravity)
+    # Run the simulation and get the path to the log file
+    log_file_path = run_mujoco(policy, Sim2simCfg(), args.run_name, mode=args.mode, log_dir=args.log_dir, disable_gravity=args.disable_gravity)
+
+    # Generate plots from the log file
+    if log_file_path and os.path.exists(log_file_path):
+        plot_log_data(log_file_path)
