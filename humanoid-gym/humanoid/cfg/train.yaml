@@ -74,6 +74,6 @@ runner:
   save_interval: 400
   run_name: ''
   resume: true
-  load_run: 'Jun20_18-06-04_v3'
-  checkpoint: 3600
+  load_run: 'Jun27_22-03-51_v3_t8'
+  checkpoint: 2000
   resume_path: null

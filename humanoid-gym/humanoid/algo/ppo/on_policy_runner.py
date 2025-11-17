@@ -34,6 +34,7 @@ import time
 import torch
 import wandb
 import statistics
+import yaml  # <--- 新增: 导入yaml库用于保存配置文件
 from collections import deque
 from datetime import datetime
 from .ppo import PPO
@@ -50,7 +51,7 @@ class OnPolicyRunner:
         self.cfg = train_cfg["runner"]
         self.alg_cfg = train_cfg["algorithm"]
         self.policy_cfg = train_cfg["policy"]
-        self.all_cfg = train_cfg
+        self.all_cfg = train_cfg # <--- 这个变量包含了所有配置，我们将保存它
         self.wandb_run_name = (
             datetime.now().strftime("%b%d_%H-%M-%S")
             + "_"
@@ -276,7 +277,9 @@ class OnPolicyRunner:
         )
         print(log_string)
 
+    # ============================ vvv 代码修改区域 vvv ============================
     def save(self, path, infos=None):
+        # 1. 保存模型检查点 (原始逻辑)
         torch.save(
             {
                 "model_state_dict": self.alg.actor_critic.state_dict(),
@@ -286,6 +289,22 @@ class OnPolicyRunner:
             },
             path,
         )
+
+        # 2. 新增逻辑: 保存完整的实验配置文件
+        # 从模型保存路径中获取目录
+        log_dir = os.path.dirname(path)
+        # 定义配置文件的路径
+        config_path = os.path.join(log_dir, "config.yaml")
+
+        # 检查配置文件是否已存在，如果不存在，则创建它。
+        # 这可以防止在训练过程中每次保存模型时都重复写入相同的配置文件。
+        if not os.path.exists(config_path):
+            with open(config_path, 'w') as f:
+                # 使用yaml.dump将整个配置字典(self.all_cfg)写入文件
+                # default_flow_style=False 使其格式更易读
+                yaml.dump(self.all_cfg, f, default_flow_style=False)
+            print(f"Configuration saved to {config_path}")
+    # ============================ ^^^ 代码修改区域 ^^^ ============================
 
     def load(self, path, load_optimizer=True):
         loaded_dict = torch.load(path)

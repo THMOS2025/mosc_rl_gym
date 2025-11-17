@@ -228,7 +228,7 @@ class LeggedRobotCfg(BaseConfig):
         push_prop = 1
         push_interval_s = 12
         max_push_vel_xy = 1.0
-        max_push_ang_vel = 0.6 * 1.2
+        max_push_ang_vel = 0.6 * 1.2   
 
         # --- ADDED: Parameters for continuous external disturbances ---
         randomize_disturbances = True # Flag to enable/disable disturbances
