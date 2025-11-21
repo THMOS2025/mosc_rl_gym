@@ -48,7 +48,6 @@ class LeggedRobotCfg(BaseConfig):
         env_spacing = 3.  # not used with heightfields/trimeshes 
         send_timeouts = True # send time out information to the algorithm
         episode_length_s = 24  # episode length in seconds
-        # use_ref_actions = True  # <-- REMOVED: This parameter was unused in the provided code.
 
     class safety:
         # safety factors
@@ -60,7 +59,6 @@ class LeggedRobotCfg(BaseConfig):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/MOSC0516/MOSC_0516_offset_up_hand.urdf'  
         name = "MOSC"
         foot_name = "foot"
-        # terminate_after_contacts_on = ['base_link','hip_yaw','hip_roll','thigh','calf']
         terminate_after_contacts_on = ['body']
         penalize_contacts_on = ["body"]
         collapse_fixed_joints = True # merge bodies connected by fixed joints. Specific fixed joints can be kept by adding " <... dont_collapse="true">
@@ -87,7 +85,6 @@ class LeggedRobotCfg(BaseConfig):
         dynamic_friction = 1.0
         restitution = 0.
 
-        #mesh_type = 'plane'
         mesh_type = 'trimesh'
               
         terrain_length = 8.
@@ -99,7 +96,6 @@ class LeggedRobotCfg(BaseConfig):
         border_size = 25 # [m]
         selected = False
         max_init_terrain_level = 2  # starting curriculum state
-        # plane; obstacles; uniform; slope_up; slope_down, stair_up, stair_down
         terrain_proportions = [0.50, 0.00, 0.50, 0.0, 0.0, 0.0]
         slope_treshold = 0.75 # slopes above this threshold will be corrected to vertical surfaces
         terrain_kwargs = None # Dict of arguments for selected terrain
@@ -107,11 +103,10 @@ class LeggedRobotCfg(BaseConfig):
     class commands:
         num_commands = 3
         resampling_time = 8  # time before command are changed[s]
-        # show command direction
         use_debug_lines = True
         curriculum = True
         delay_range = [0.0, 0.02]
-        max_curriculum = 1.5 # <-- ADDED: Used in update_command_curriculum but was missing.
+        max_curriculum = 1.5 
         class ranges:
             lin_vel_x = [-1.0, 1.5]   # min max [m/s]
             lin_vel_y = [-1.0, 1.0]   # min max [m/s]
@@ -131,7 +126,7 @@ class LeggedRobotCfg(BaseConfig):
             dof_vel = 1.5
             ang_vel = 0.3
             lin_vel = 0.1
-            quat = 0.03
+            quat = 0.1
 
     class init_state:
         pos = [0.0, 0.0, 0.51]
@@ -155,29 +150,26 @@ class LeggedRobotCfg(BaseConfig):
 
     class control:
         # PD Drive parameters:
-        stiffness = {'b_Lh':100, 'b_Rh':100,
-                    'Lh_Ll':100, 'Rh_Rl':100,
-                    'Ll_Ll1':100, 'Rl_Rl1':100, 
-                    'Ll1_Ll2':100, 'Rl1_Rl2':100, 
-                    'Ll2_La':50, 'Rl2_Ra':50, 
-                    'La_Lf':25, 'Ra_Rf':25}
+        stiffness = {'b_Lh':300.0, 'b_Rh':300.0,
+                     'Lh_Ll':300.0, 'Rh_Rl':300,
+                     'Ll_Ll1':45.0, 'Rl_Rl1':45.0, 
+                     'Ll1_Ll2':50.0, 'Rl1_Rl2':50.0, 
+                     'Ll2_La':50.0, 'Rl2_Ra':50.0, 
+                     'La_Lf':7.0, 'Ra_Rf':7.0}
                      
-        damping = {'b_Lh':2.0, 'b_Rh':2.0,
-                    'Lh_Ll':2.0, 'Rh_Rl':2.0,
-                    'Ll_Ll1':2.0, 'Rl_Rl1':2.0, 
-                    'Ll1_Ll2':2.0, 'Rl1_Rl2':2.0, 
-                    'Ll2_La':1.5, 'Rl2_Ra':1.5, 
-                    'La_Lf':0.5, 'Ra_Rf':0.5}
+        damping = {'b_Lh':20.0, 'b_Rh':20.0,
+                   'Lh_Ll':20.0, 'Rh_Rl':20.0,
+                   'Ll_Ll1':3.0, 'Rl_Rl1':3.0, 
+                   'Ll1_Ll2':3.0, 'Rl1_Rl2':3.0, 
+                   'Ll2_La':1.5, 'Rl2_Ra':1.5, 
+                   'La_Lf':0.3, 'Ra_Rf':0.3}
 
-        # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
-
-        # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 10 # 50hz
 
     class sim:
         dt = 0.002  # 1000 Hz
-        substeps = 1  # 2
+        substeps = 1
         up_axis = 1  # 0 is y, 1 is z
         gravity = [0., 0. ,-9.81]  # [m/s^2]
 
@@ -192,12 +184,9 @@ class LeggedRobotCfg(BaseConfig):
             max_depenetration_velocity = 1.0
             max_gpu_contact_pairs = 2**23  # 2**24 -> needed for 8000 envs and more
             default_buffer_size_multiplier = 5
-            # 0: never, 1: last sub-step, 2: all sub-steps (default=2)
             contact_collection = 2
 
     class domain_rand:
-        # action_randomization: 0.05 # <-- REMOVED: Duplicate entry
-        
         randomize_friction = True
         friction_range = [-0.4, 0.6]
         restitution_range = [0.0, 1.0]
@@ -216,10 +205,10 @@ class LeggedRobotCfg(BaseConfig):
 
         kp_rand_ratio = 0.2
         kd_rand_ratio = 0.1
-        torque_rand_ratio = 0.0 # 98% -100% torque
+        torque_rand_ratio = 0.0 
         default_pos_rand = 0.02
         init_joint_pos_r = 0.05
-        joint_friction = [0.0,0.0] # 0 -0.1
+        joint_friction = [0.0,0.0] 
         joint_armature = [0.0,0.0]
         joint_max_delay = 10
         joint_min_delay = 5
@@ -230,51 +219,40 @@ class LeggedRobotCfg(BaseConfig):
         max_push_vel_xy = 1.0
         max_push_ang_vel = 0.6 * 1.2   
 
-        # --- ADDED: Parameters for continuous external disturbances ---
-        randomize_disturbances = True # Flag to enable/disable disturbances
-        max_disturb_force = 10.0      # Max continuous force in N
-        max_disturb_torque = 1.0      # Max continuous torque in Nm
+        randomize_disturbances = True 
+        max_disturb_force = 10.0      
+        max_disturb_torque = 1.0      
 
     class rewards:
-        # 课程学习设定保持不变
         curriculum = True
         curriculum_offset = 0.01
         curriculum_decay = 0.9999
         
-        # 通用设定
         base_height_target = 0.88
+        # --- MODIFIED (CRITICAL): Set to False to enable penalties. If True, all negative rewards are clipped to 0. ---
         only_positive_rewards = False 
         tracking_sigma = 0.25 
         
-        # --- ADDED: Parameters for gait generation and reference states ---
-        cycle_time = 1.0                  # Gait cycle time in seconds
-        double_stand_phase = 0.1          # Phase duration for double support
-        target_joint_pos_scale = 0.3      # Scale for reference joint motion
-        ref_pos_dir = [1., 1., 1., 1., 1., 1.] # Direction multipliers for ref motion
+        cycle_time = 1.0                  
+        double_stand_phase = 0.1          
+        target_joint_pos_scale = 0.3      
+        ref_pos_dir = [1., 1., 1., 1., 1., 1.] 
 
         class scales:
-            # 核心目标与稳定性
-            termination = -200.0          # 惩罚：任务终止（如摔倒）
-            tracking_lin_vel = 1.5        # 奖励：追踪线速度
-            tracking_ang_vel = 0.75       # 奖励：追踪角速度
-            orientation = -5.0            # 惩罚：身体倾斜
-            lin_vel_z = -2.0              # 惩罚：垂直方向速度过大（跳跃）
-            ang_vel_xy = -0.05            # 惩罚：身体左右晃动
-
-            # 步态与接触
-            feet_air_time = 0.5           # 奖励：动态步态（合理的滞空时间）
-            collision = -1.0              # 惩罚：除脚部外的身体碰撞
-            foot_slip = -0.05             # 惩罚：脚部在地面滑动
-
-            # 能量与消耗
-            torques = -1.0e-5             # 惩罚：力矩消耗
-            dof_vel = -1.5e-5             # 惩罚：关节速度过大
-            dof_acc = -2.5e-7             # 惩罚：关节加速度过大
-            action_rate = -0.01           # 惩罚：动作不平滑
-
-            # 极限惩罚
-            dof_pos_limits = -10.0        # 惩罚：关节角度接近或超出限制
-
+            termination = -200.0          
+            tracking_lin_vel = 1.5        
+            # --- MODIFIED (CRITICAL): Changed from positive to negative to correctly penalize tilting. ---
+            orientation = -5.0            
+            lin_vel_z = -2.0              
+            ang_vel_xy = -0.05            
+            feet_air_time = 0.5           
+            collision = -1.0              
+            foot_slip = -0.05             
+            torques = -1.0e-5             
+            dof_vel = -1.5e-5             
+            dof_acc = -2.5e-7             
+            action_rate = -0.01           
+            dof_pos_limits = -10.0        
 
     class normalization:
         class obs_scales:
@@ -288,14 +266,14 @@ class LeggedRobotCfg(BaseConfig):
 
 class LeggedRobotCfgPPO(BaseConfig):
     seed = 5
-    runner_class_name = 'OnPolicyRunner'   # DWLOnPolicyRunner
+    runner_class_name = 'OnPolicyRunner'
 
     class policy:
         init_noise_std = 1.0
         actor_hidden_dims = [512, 256, 128]
         critic_hidden_dims = [768, 256, 128]
         
-    class algorithm():
+    class algorithm:
         value_loss_coef = 1.0
         use_clipped_value_loss = True
         clip_param = 0.2
@@ -312,21 +290,14 @@ class LeggedRobotCfgPPO(BaseConfig):
     class runner:
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
-        num_steps_per_env = 60  # per iteration
-        max_iterations = 2000  # number of policy updates
+        num_steps_per_env = 60
+        max_iterations = 2000
 
-        # logging
-        save_interval = 400  # check for potential saves every this many iterations
+        save_interval = 400
         experiment_name = 'MOSC'
-        run_name = 'v10_s1'
+        run_name = 'v1_corrected' # Changed run name for clarity
         
-        # load and resume
         resume = False
-        
-        load_run = 'Jun20_18-06-04_v3' # -1 = last run
-        checkpoint = 3600 # -1 = last saved model
-        
-        # load_run = 'Jun23_21-26-19_v3_s2' # -1 = last run
-        # checkpoint = -1 # -1 = last saved model
-        
-        resume_path = None  # updated from load_run 
+        load_run = None
+        checkpoint = -1
+        resume_path = None

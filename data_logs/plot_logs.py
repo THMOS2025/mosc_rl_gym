@@ -21,6 +21,8 @@ import sys
 import time
 import numpy
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 
 
 def find_dir():

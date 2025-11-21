@@ -663,7 +663,9 @@ class LeggedRobot(BaseTask):
         self.base_quat = self.root_states[:, 3:7]
         self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
         self.contact_forces = gymtorch.wrap_tensor(net_contact_forces).view(self.num_envs, -1, 3) # shape: num_envs, num_bodies, xyz axis
-        self.rigid_state = gymtorch.wrap_tensor(rigid_body_state).view(self.num_envs, 13, 13) #add one 
+        
+        # --- MODIFIED (CRITICAL): Correctly reshape the rigid_state tensor ---
+        self.rigid_state = gymtorch.wrap_tensor(rigid_body_state).view(self.num_envs, self.num_bodies, 13)
 
         # initialize some data used later on
         self.common_step_counter = 0
@@ -718,20 +720,14 @@ class LeggedRobot(BaseTask):
             self.critic_history.append(torch.zeros(
                 self.num_envs, self.cfg.env.single_num_privileged_obs, dtype=torch.float, device=self.device))
             
-        # --- ADDED: 为 Mevita 功能添加的缓冲区 ---
-        # 动作延迟相关缓冲区
         self.actions_delay_range = self.cfg.commands.delay_range
-        # 计算历史缓冲区的长度，需要比最大延迟时间稍长
         self.actions_history_length = int((self.actions_delay_range[1] + self.dt) / self.dt) + 1
         self.actions_history = torch.zeros((self.actions_history_length, self.num_envs, self.num_actions), dtype=torch.float, device=self.device)
-        # 为每个环境初始化一个随机的动作延迟时间
         self.current_actions_delay = torch_rand_float(self.actions_delay_range[0], self.actions_delay_range[1], (self.num_envs, 1), device=self.device).flatten()
 
-        # 外部干扰相关缓冲区 (对所有刚体施加)
         self.external_forces = torch.zeros((self.num_envs, self.num_bodies, 3), device=self.device)
         self.external_torques = torch.zeros((self.num_envs, self.num_bodies, 3), device=self.device)
 
-        # 课程学习权重相关缓冲区
         self.reward_curriculum_weight = torch.ones(self.num_envs, dtype=torch.float, device=self.device)
         if self.cfg.rewards.curriculum:
             self.reward_curriculum_weight *= self.cfg.rewards.curriculum_offset
@@ -740,9 +736,9 @@ class LeggedRobot(BaseTask):
         if self.cfg.noise.curriculum:
             self.noise_curriculum_weight *= self.cfg.noise.curriculum_offset
             
-        # 地形课程辅助缓冲区 (用于计算追踪误差)
         self.step_counter = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
         self.tracking_error_sum = torch.zeros(self.num_envs, 3, device=self.device) # x, y, yaw 的误差总和
+        
         
 
     def _prepare_reward_function(self):
@@ -962,7 +958,7 @@ class LeggedRobot(BaseTask):
             # target postion vec
             commands_vec = (self.commands[i, :2]).cpu().numpy()
             base_vec = (self.base_loc[i, :2]).cpu().numpy()  
-            x1 = base_vec[0]
+            x1 = base_vec[0]    
             y1 = base_vec[1]
             z1 = 0.2         
             x2 = base_vec[0] + commands_vec[0] 
@@ -994,6 +990,9 @@ class LeggedRobot(BaseTask):
         如果误差很大，则降低难度。
         """
         if not self.cfg.terrain.curriculum:
+            return
+        
+        if not hasattr(self, 'terrain') or self.terrain is None:
             return
 
         # 获取那些已经跑了一段时间的环境的 ID
