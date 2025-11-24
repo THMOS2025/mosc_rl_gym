@@ -242,17 +242,18 @@ class LeggedRobotCfg(BaseConfig):
             termination = -200.0          
             tracking_lin_vel = 1.5        
             # --- MODIFIED (CRITICAL): Changed from positive to negative to correctly penalize tilting. ---
-            orientation = -5.0            
-            lin_vel_z = -2.0              
+            orientation = -0.5            
+            lin_vel_z = -0.5              
             ang_vel_xy = -0.05            
-            feet_air_time = 0.5           
+            feet_air_time = 1.0           
             collision = -1.0              
             foot_slip = -0.05             
             torques = -1.0e-5             
             dof_vel = -1.5e-5             
             dof_acc = -2.5e-7             
             action_rate = -0.01           
-            dof_pos_limits = -10.0        
+            dof_pos_limits = -10.0
+            joint_pos = 2.0        
 
     class normalization:
         class obs_scales:

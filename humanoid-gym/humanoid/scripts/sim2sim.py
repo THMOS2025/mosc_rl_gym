@@ -379,11 +379,11 @@ class Sim2simCfg():
         if_joint_command_offset = True
         
         tau_limit = np.array([
-            60.0, 60.0, 
-            60.0, 60.0,
-            60.0, 60.0, 
-            60.0, 60.0, 
-            60.0, 60.0, 
+            40.0, 40.0, 
+            40.0, 40.0,
+            40.0, 40.0, 
+            40.0, 40.0, 
+            10.0, 10.0, 
             10.0, 10.0], dtype=np.double)
         
     class control:

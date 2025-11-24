@@ -69,6 +69,16 @@ class HumanoidRewards(LeggedRobot):
     def _reward_collision(self):
         """惩罚除脚部以外的身体部位发生碰撞"""
         return torch.sum(1.*(torch.norm(self.contact_forces[:, self.penalised_contact_indices, :], dim=-1) > 0.1), dim=1)
+    
+    def _reward_joint_pos(self):
+        """
+        Calculates the reward based on the difference between the current joint positions and the target joint positions.
+        """
+        joint_pos = self.dof_pos.clone()
+        pos_target = self.ref_dof_pos.clone()
+        diff = joint_pos[:, :12] - pos_target[:, :12]
+        r = torch.exp(-2 * torch.norm(diff, dim=1)) - 0.2 * torch.norm(diff, dim=1).clamp(0, 0.5)
+        return r
 
 # ========================== 能量与消耗相关奖励 (保留) ==========================
  
