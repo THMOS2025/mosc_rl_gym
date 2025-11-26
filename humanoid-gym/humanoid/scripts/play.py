@@ -47,8 +47,6 @@ import torch
 from tqdm import tqdm
 from datetime import datetime
 
-    
-
 config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "cfg")
 @hydra.main(config_path=config_path, config_name="play")
 def play(args):
@@ -56,11 +54,6 @@ def play(args):
 
     recursive_override_class_cfg(env_cfg, args)
     recursive_override_class_cfg(train_cfg, args)
-    
-    
-    
-    # train_cfg.runner.load_run = 'Jun20_18-06-04_v3'
-    # train_cfg.runner.checkpoint = 3600
     
     args.run_name = args.runner.run_name
     if args.runner.load_run == -1:
@@ -81,8 +74,6 @@ def play(args):
         args.runner.load_run = load_run
         print("find dir:", load_run)
         
-        
-
     stop_state_log = 1000 # number of steps before plotting states
     start_plot = 0
 
@@ -93,27 +84,11 @@ def play(args):
         if not os.path.exists(log_dir_path):
             os.makedirs(log_dir_path) 
             
-    if RECDATA or PLOT:           
+    if RECDATA or PLOT:            
         joint_name = [
-                'l_hip_yaw',
-                'l_hip_roll',
-                'l_hip_pitch',
-                'l_knee_pitch',
-                'l_ankle_pitch',
-                'l_ankle_roll',
-                'r_hip_roll',
-                'r_hip_yaw',
-                'r_hip_pitch',
-                'r_knee_pitch',
-                'r_ankle_pitch',
-                'r_ankle_roll']
-        imu_name = [
-                'roll',
-                'pitch',
-                'yaw',
-                'x',
-                'y',
-                'z',]
+                'l_hip_yaw', 'l_hip_roll', 'l_hip_pitch', 'l_knee_pitch', 'l_ankle_pitch', 'l_ankle_roll',
+                'r_hip_roll', 'r_hip_yaw', 'r_hip_pitch', 'r_knee_pitch', 'r_ankle_pitch', 'r_ankle_roll']
+        imu_name = ['roll', 'pitch', 'yaw', 'x', 'y', 'z']
 
         joint_actions_rec = np.empty((stop_state_log,12))
         joint_torques_rec = np.empty((stop_state_log,12))
@@ -127,7 +102,9 @@ def play(args):
     env, _ = task_registry.make_env_hydra(name=args.task, hydra_cfg=args)
     print("env is ready")
     print_config_simple(env_cfg, "env_cfg")
-    env.set_camera(env_cfg.viewer.pos, env_cfg.viewer.lookat)
+    
+    if env.viewer:
+        env.set_camera(env_cfg.viewer.pos, env_cfg.viewer.lookat)
 
     obs = env.get_observations()
 
@@ -137,24 +114,20 @@ def play(args):
     print_config_simple(train_cfg, "train_cfg")
     policy = ppo_runner.get_inference_policy(device=env.device)
     
-
-    
-    # export policy as a jit module (used to run it from C++)
     if EXPORT_POLICY:
         path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'policies')
         export_policy_as_jit(ppo_runner.alg.actor_critic, path, args.run_name)
         print('Exported policy as jit script to: ', path)
 
-    robot_index = 0 # which robot is used for logging
+    robot_index = 0 
 
     if RENDER:
         camera_properties = gymapi.CameraProperties()
         camera_properties.width = 1920
         camera_properties.height = 1080
         h1 = env.gym.create_camera_sensor(env.envs[0], camera_properties)
-        camera_offset = gymapi.Vec3(1.5, -1, 1) #(1, -1, 0.5)
-        camera_rotation = gymapi.Quat.from_axis_angle(gymapi.Vec3(-0.3, 0.2, 1),
-                                                    np.deg2rad(135))
+        camera_offset = gymapi.Vec3(1.5, -1, 1) 
+        camera_rotation = gymapi.Quat.from_axis_angle(gymapi.Vec3(-0.3, 0.2, 1), np.deg2rad(135))
         actor_handle = env.gym.get_actor_handle(env.envs[0], 0)
         body_handle = env.gym.get_actor_rigid_body_handle(env.envs[0], actor_handle, 0)
         env.gym.attach_camera_to_body(
@@ -172,16 +145,104 @@ def play(args):
             os.mkdir(experiment_dir)
         video = cv2.VideoWriter(dir, fourcc, 50.0, (1920, 1080))
 
+    # =========================================================================
+    # [Setup] 矢量化绘图准备
+    # =========================================================================
+    cmd_color = np.array([[1.0, 0.0, 0.0]], dtype=np.float32) # Red
+    ref_color = np.array([[0.0, 1.0, 0.0]], dtype=np.float32) # Green
+    
+    thickness = 0.02 
+    th = thickness
+    offset_template = np.array([
+        [0, 0, 0],
+        [th, 0, 0], [-th, 0, 0],
+        [0, th, 0], [0, -th, 0],
+        [th, th, 0], [th, -th, 0],
+        [-th, th, 0], [-th, -th, 0]
+    ], dtype=np.float32) 
+    
+    num_thick_lines = len(offset_template)
+    offsets_tensor = torch.tensor(offset_template, device=env.device) 
+
+    # =========================================================================
+    # [Setup] 生成多样化的固定指令 (Each Robot Different, but Constant)
+    # =========================================================================
+    if FIX_COMMAND:
+        # 使用随机种子确保每次运行结果一致 (可选)
+        torch.manual_seed(1234)
+        
+        num_envs = env.num_envs
+        custom_commands = torch.zeros((num_envs, 3), device=env.device)
+        
+        # 1. 纵向速度 Vx: 范围 [-0.5, 1.5] m/s
+        custom_commands[:, 0] = (torch.rand(num_envs, device=env.device) * 2.0) - 0.5
+        
+        # 2. 横向速度 Vy: 范围 [-0.5, 0.5] m/s
+        custom_commands[:, 1] = (torch.rand(num_envs, device=env.device) * 1.0) - 0.5
+        
+        # 3. 转向角速度 Yaw: 范围 [-1.0, 1.0] rad/s
+        custom_commands[:, 2] = (torch.rand(num_envs, device=env.device) * 2.0) - 1.0
+        
+        print(f"Generated {num_envs} random commands.")
+        print("Example Command 0:", custom_commands[0].cpu().numpy())
+    # =========================================================================
+
     for i in tqdm(range(stop_state_log)):
 
         actions = policy(obs.detach()) 
-        env.debug_viz = True
+        env.debug_viz = True 
         
+        # =================================================================
+        # [Modify] 锁定指令
+        # 强制将所有机器人的指令设置为我们预生成的 custom_commands
+        # 这样即使环境内部想重置(Resample)，也会被我们覆盖回来
+        # =================================================================
         if FIX_COMMAND:
-            env.commands[:, 0] =  0.3
-            env.commands[:, 1] =  0.0
-            env.commands[:, 2] =  0.0
+            env.commands[:, 0:3] = custom_commands
+        
         obs, critic_obs, rews, dones, infos = env.step(actions.detach())
+
+        # ==================== 可视化逻辑 (所有机器人 + 向量化 + 加粗) ====================
+        if env.viewer:
+            env.gym.refresh_rigid_body_state_tensor(env.sim)
+            
+            all_base_pos = env.root_states[:, :3] 
+            all_base_quat = env.root_states[:, 3:7]
+            num_envs = env.num_envs
+            
+            # 计算局部指令向量 (直接使用 env.commands, 此时已经被我们锁定)
+            local_cmds = torch.zeros((num_envs, 3), device=env.device)
+            local_cmds[:, 0] = env.commands[:, 0]
+            local_cmds[:, 1] = env.commands[:, 1]
+            local_cmds[:, 2] = 0.0
+            
+            # 旋转到世界系
+            global_cmds = quat_apply(all_base_quat, local_cmds)
+            
+            # 计算端点
+            p_start_ref = all_base_pos 
+            p_end_ref = all_base_pos + torch.tensor([0.0, 0.0, 1.0], device=env.device) 
+            p_end_cmd = p_end_ref + global_cmds * 1.5 
+            
+            # 加粗 (Broadcasting)
+            ref_starts_thick = p_start_ref.unsqueeze(1) + offsets_tensor.unsqueeze(0)
+            ref_ends_thick = p_end_ref.unsqueeze(1) + offsets_tensor.unsqueeze(0)
+            cmd_starts_thick = p_end_ref.unsqueeze(1) + offsets_tensor.unsqueeze(0)
+            cmd_ends_thick = p_end_cmd.unsqueeze(1) + offsets_tensor.unsqueeze(0)
+            
+            # 展平
+            verts_ref = torch.cat([ref_starts_thick, ref_ends_thick], dim=2).view(-1, 6).cpu().numpy()
+            verts_cmd = torch.cat([cmd_starts_thick, cmd_ends_thick], dim=2).view(-1, 6).cpu().numpy()
+            
+            # 颜色
+            total_lines = num_envs * num_thick_lines
+            color_ref_all = np.tile(ref_color, (total_lines, 1))
+            color_cmd_all = np.tile(cmd_color, (total_lines, 1))
+            
+            # 绘制
+            env.gym.add_lines(env.viewer, None, total_lines, verts_ref, color_ref_all)
+            env.gym.add_lines(env.viewer, None, total_lines, verts_cmd, color_cmd_all)
+        # =========================================================================
 
         if RENDER:
             env.gym.fetch_results(env.sim, True)
@@ -192,7 +253,7 @@ def play(args):
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             video.write(img[..., :3])
 
-        if RECDATA or PLOT:           
+        if RECDATA or PLOT:            
             joint_actions_rec[i] = actions[robot_index, :].cpu().detach().numpy() * 0.25
             joint_torques_rec[i] = env.torques[robot_index,:].cpu().detach().numpy() 
             joint_dof_vel_rec[i] = env.dof_vel[robot_index,:].cpu().detach().numpy()
@@ -272,10 +333,8 @@ def play(args):
 
 if __name__ == '__main__':
     EXPORT_POLICY = True
-    RENDER = False
+    RENDER = True
     RECDATA = False
     PLOT = False
     FIX_COMMAND = True
-    # args = get_args()
-    # play(args)
     play()

@@ -188,16 +188,16 @@ class LeggedRobotCfg(BaseConfig):
 
     class domain_rand:
         randomize_friction = True
-        friction_range = [-0.4, 0.6]
+        friction_range = [0.5, 1.0]
         restitution_range = [0.0, 1.0]
         rand_init_pos = [-0.01,0.01]
         rand_init_rot = [-0.01,0.01]
 
         randomize_base_mass = True
         add_mass = [-6., 2.]
-        add_com_x = [-0.040,0.040]
-        add_com_y = [-0.040,0.040]
-        add_com_z = [-0.040,0.040]
+        add_com_x = [-0.150, 0.150]
+        add_com_y = [-0.150, 0.150]
+        add_com_z = [-0.150, 0.150]
         add_link_mass_rate = [0.5,1.5]
         
         action_randomization = 0.02
@@ -215,7 +215,7 @@ class LeggedRobotCfg(BaseConfig):
                 
         push_robots = True
         push_prop = 1
-        push_interval_s = 12
+        push_interval_s = 5.0
         max_push_vel_xy = 1.0
         max_push_ang_vel = 0.6 * 1.2   
 
@@ -228,32 +228,33 @@ class LeggedRobotCfg(BaseConfig):
         curriculum_offset = 0.01
         curriculum_decay = 0.9999
         
-        base_height_target = 0.88
+        base_height_target = 0.36
         # --- MODIFIED (CRITICAL): Set to False to enable penalties. If True, all negative rewards are clipped to 0. ---
         only_positive_rewards = False 
         tracking_sigma = 0.25 
         
-        cycle_time = 1.0                  
-        double_stand_phase = 0.1          
-        target_joint_pos_scale = 0.3      
+        cycle_time = 0.55                  
+        double_stand_phase = 0.05          
+        target_joint_pos_scale = 0.16      
         ref_pos_dir = [1., 1., 1., 1., 1., 1.] 
 
         class scales:
             termination = -200.0          
-            tracking_lin_vel = 1.5        
+            tracking_lin_vel = 1.5
+            tracking_ang_vel = 0.8        
             # --- MODIFIED (CRITICAL): Changed from positive to negative to correctly penalize tilting. ---
-            orientation = -0.5            
+            orientation = -1.0            
             lin_vel_z = -0.5              
             ang_vel_xy = -0.05            
             feet_air_time = 1.0           
             collision = -1.0              
-            foot_slip = -0.05             
-            torques = -1.0e-5             
-            dof_vel = -1.5e-5             
+            foot_slip = -0.5             
+            torques = -2.5e-6             
+            dof_vel = -1.5e-6             
             dof_acc = -2.5e-7             
             action_rate = -0.01           
             dof_pos_limits = -10.0
-            joint_pos = 2.0        
+            joint_pos = 0.2        
 
     class normalization:
         class obs_scales:

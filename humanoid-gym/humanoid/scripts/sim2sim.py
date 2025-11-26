@@ -173,17 +173,8 @@ def pd_control(target_q, q, kp, target_dq, dq, kd):
 def run_mujoco(policy, cfg):
     """
     Run the Mujoco simulation using the provided policy and configuration.
-
-    Args:
-        policy: The policy used for controlling the simulation.
-        cfg: The configuration object containing simulation settings.
-
-    Returns:
-        None
     """
     model = mujoco.MjModel.from_xml_path(cfg.sim_config.mujoco_model_path)
-    # TODO
-    # model.body_mass[:] = model.body_mass * 0.5
     print(model.body_mass)
     model.opt.timestep = cfg.sim_config.dt
     data = mujoco.MjData(model)
@@ -204,26 +195,32 @@ def run_mujoco(policy, cfg):
 
     viewer = mujoco_viewer.MujocoViewer(model, data)
 
-    joint_names = [model.joint(i).name for i in range(model.njnt)]
-    #print(joint_names)
+    # --- [新增] 保存初始的基座位置和姿态，用于预热期锁定 ---
+    # data.qpos 的前7位通常是自由关节 (root): 3个位置(x,y,z) + 4个四元数(w,x,y,z)
+    init_qpos = data.qpos.copy()
+    init_qvel = data.qvel.copy()
 
     target_q = np.zeros((cfg.env.num_actions), dtype=np.double)
     action = np.zeros((cfg.env.num_actions), dtype=np.double)
+    last_target_q = action_offset.copy()
 
     hist_obs = deque()
     for _ in range(cfg.env.frame_stack):
         hist_obs.append(np.zeros([1, cfg.env.num_single_obs], dtype=np.double))
 
     count_lowlevel = 0
-    count_highlevel = 0
-
-
+    
     for i in range(3):
         mujoco.mj_step(model, data)
         viewer.render()
 
     if REC:
         global data_rec
+
+    # 定义预热步数 (1.0秒)
+    warmup_steps = int(1.0 / cfg.sim_config.dt)
+    print(f"Starting warmup for {warmup_steps} steps ({1.0} seconds)...")
+
     for _step in tqdm(range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)), desc="Simulating..."):
 
         # Obtain an observation
@@ -231,20 +228,12 @@ def run_mujoco(policy, cfg):
         q = q[-cfg.env.num_actions:] 
         dq = dq[-cfg.env.num_actions:]
 
-        # 1000hz -> 100hz
+        # 1000hz -> 50hz
         if count_lowlevel % cfg.sim_config.decimation == 0:
             eu_ang = quaternion_to_euler_array(quat)
             eu_ang[eu_ang > math.pi] -= 2 * math.pi
             eu_ang[:3] *= 1
             
-            # omega_base = np.zeros_like(omega_base)
-            # eu_ang = np.zeros_like(eu_ang)
-
-            # add noise
-            # eu_ang = eu_ang + np.random.randn(*eu_ang.shape) * 0.12 * 0.6
-            # omega_base = omega_base + np.random.randn(*omega_base.shape) * 0.12 * 0.6
-
-            #print(eu_ang)
             obs_parts = []
             obs_parts.append(np.array([math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time)])) 
             obs_parts.append(np.array([math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time)]))
@@ -262,28 +251,32 @@ def run_mujoco(policy, cfg):
             hist_obs.append(obs)
             hist_obs.popleft()
 
-            policy_input = np.zeros([1, cfg.env.num_observations], dtype=np.float32)
-            for i in range(cfg.env.frame_stack):
-                policy_input[0, i * cfg.env.num_single_obs : (i + 1) * cfg.env.num_single_obs] = hist_obs[i][0, :]
+            if _step < warmup_steps:
+                # --- [修改] 预热期：锁定机器人 + 动作归零 ---
+                
+                # 1. 强制重置基座位置和姿态 (God Hand Mode)
+                data.qpos[:7] = init_qpos[:7]
+                data.qvel[:] = 0.0 # 杀死所有动量
+                
+                # 2. 动作归零 (让PD维持初始姿态)
+                action[:] = 0.0
+                target_q = action_offset.copy()
+            else:
+                # 正式阶段
+                policy_input = np.zeros([1, cfg.env.num_observations], dtype=np.float32)
+                for i in range(cfg.env.frame_stack):
+                    policy_input[0, i * cfg.env.num_single_obs : (i + 1) * cfg.env.num_single_obs] = hist_obs[i][0, :]
 
-            action[:] = policy(torch.tensor(policy_input))[0].detach().numpy()
-            action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)  
+                action[:] = policy(torch.tensor(policy_input))[0].detach().numpy()
+                action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)  
+                
+                target_q = action * cfg.control.action_scale + action_offset 
             
-            # print(policy_input)
-            # print(action)
-            # time.sleep(100.0)
-            
-            target_q = action * cfg.control.action_scale + action_offset 
-            
+            # Low-pass filter
             alpha = 0.8
-            if _step != 0:
-                target_q = alpha * target_q + (1 - alpha) * last_target_q
+            target_q = alpha * target_q + (1 - alpha) * last_target_q
             last_target_q = target_q.copy()
             
-            
-            # target_q[4] = 0.3 * np.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time * 0.1)
-            # target_q[10] = -0.3 * np.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time * 0.1)  
-            # print([q[3]/3.141593*180,q[9]/3.141593*180])
             if REC:
                 data_rec.rpy = eu_ang
                 data_rec.omega = omega_base
@@ -296,8 +289,8 @@ def run_mujoco(policy, cfg):
                     
         # Generate PD control
         tau = pd_control(target_q, q, cfg.robot_config.kps,
-                        target_dq, dq, cfg.robot_config.kds)  # Calc torques
-        tau = np.clip(tau, -cfg.robot_config.tau_limit, cfg.robot_config.tau_limit) # Clamp torques
+                        target_dq, dq, cfg.robot_config.kds)  
+        tau = np.clip(tau, -cfg.robot_config.tau_limit, cfg.robot_config.tau_limit) 
 
         data.ctrl = tau
                         
@@ -375,6 +368,16 @@ class Sim2simCfg():
             "Rl1_Rl2": 0.6,
             "Rl2_Ra": -0.3,
             }
+        
+        # init_joint_pos = {
+        #     "b_Lh": 0,
+        #     "Ll1_Ll2": 0,
+        #     "Ll2_La": 0,
+
+        #     "b_Rh": 0,
+        #     "Rl1_Rl2": 0,
+        #     "Rl2_Ra": 0,
+        #     }
         
         if_joint_command_offset = True
         

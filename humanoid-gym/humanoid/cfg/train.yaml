@@ -10,8 +10,8 @@ env:
   num_envs: 4096
 
 terrain:
-  mesh_type: 'trimesh'
-  # mesh_type: 'plane'
+  # mesh_type: 'trimesh'
+  mesh_type: 'plane'
 
 commands:
   ranges:
@@ -73,7 +73,7 @@ runner:
   max_iterations: 2000
   save_interval: 400
   run_name: ''
-  resume: true
+  resume: false
   load_run: 'Nov19_16-33-04_v5_t4'
   checkpoint: 2000
   resume_path: null
