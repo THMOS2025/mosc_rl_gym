@@ -24,16 +24,21 @@ class HumanoidRewards(LeggedRobot):
 # ========================== 核心目标与稳定性奖励 (保留与新增) ==========================
 
     def _reward_tracking_lin_vel(self):
-        """追踪线速度指令 (XY平面)"""
-        lin_vel_error = torch.sum(torch.square(
-            self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
-        return torch.exp(-lin_vel_error * self.cfg.rewards.tracking_sigma)
+        # 追踪线速度：使用高斯核将误差映射到 (0, 1]
+        lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
+        return torch.exp(-lin_vel_error / self.cfg.rewards.tracking_sigma)
 
     def _reward_tracking_ang_vel(self):
-        """追踪角速度指令 (Z轴旋转)"""
-        ang_vel_error = torch.square(
-            self.commands[:, 2] - self.base_ang_vel[:, 2])
-        return torch.exp(-ang_vel_error * self.cfg.rewards.tracking_sigma)
+        # 追踪角速度：使用高斯核
+        ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
+        return torch.exp(-ang_vel_error / self.cfg.rewards.tracking_sigma)
+
+    def _reward_orientation(self):
+        # 姿态保持：惩罚非水平的重力投影
+        # projected_gravity 是重力向量在机身坐标系下的投影，理想情况是 [0, 0, -1]
+        # 使用高斯核奖励正直姿态
+        gravity_error = torch.sum(torch.square(self.projected_gravity[:, :2]), dim=1)
+        return torch.exp(-gravity_error / self.cfg.rewards.orientation_sigma)
 
     def _reward_lin_vel_z(self):
         """惩罚Z轴线速度 (防止跳跃)"""
@@ -43,9 +48,6 @@ class HumanoidRewards(LeggedRobot):
         """惩罚XY轴角速度 (防止身体摇晃)"""
         return torch.sum(torch.square(self.base_ang_vel[:, :2]), dim=1)
 
-    def _reward_orientation(self):
-        """惩罚身体倾斜"""
-        return torch.sum(torch.square(self.projected_gravity[:, :2]), dim=1)
 
 # ========================== 步态与接触相关奖励 (保留与修改) ==========================
 
@@ -54,7 +56,7 @@ class HumanoidRewards(LeggedRobot):
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
         first_contact = (self.feet_air_time > 0.) * contact
         self.feet_air_time += self.dt
-        rew_air_time = torch.sum((self.feet_air_time - 0.5) * first_contact, dim=1)
+        rew_air_time = torch.sum((self.feet_air_time - 0.25) * first_contact, dim=1)
         rew_air_time *= (torch.norm(self.commands[:, :2], dim=1) > 0.1) # 只在移动时奖励
         self.feet_air_time *= ~contact
         return rew_air_time
@@ -70,6 +72,7 @@ class HumanoidRewards(LeggedRobot):
         """惩罚除脚部以外的身体部位发生碰撞"""
         return torch.sum(1.*(torch.norm(self.contact_forces[:, self.penalised_contact_indices, :], dim=-1) > 0.1), dim=1)
     
+
     def _reward_joint_pos(self):
         """
         Calculates the reward based on the difference between the current joint positions and the target joint positions.
@@ -79,6 +82,7 @@ class HumanoidRewards(LeggedRobot):
         diff = joint_pos[:, :12] - pos_target[:, :12]
         r = torch.exp(-2 * torch.norm(diff, dim=1)) - 0.2 * torch.norm(diff, dim=1).clamp(0, 0.5)
         return r
+    
 
 # ========================== 能量与消耗相关奖励 (保留) ==========================
  

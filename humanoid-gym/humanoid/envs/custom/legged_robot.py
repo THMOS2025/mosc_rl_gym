@@ -904,48 +904,68 @@ class LeggedRobot(BaseTask):
         self.cfg.domain_rand.push_interval = np.ceil(self.cfg.domain_rand.push_interval_s / self.dt)
 
     def compute_ref_state(self):
-            phase = self._get_phase()
-            
-            # 1. 对称相位
-            phase_l = phase
-            phase_r = phase + 0.5
-            
-            sin_l = torch.sin(2 * torch.pi * phase_l)
-            sin_r = torch.sin(2 * torch.pi * phase_r)
+        phase = self._get_phase()
 
-            # 2. 动态缩放 (Velocity Scaling)
-            cmd_norm = torch.norm(self.commands[:, :2], dim=1) 
-            # 【修复点 1】这里不要 unsqueeze(1)，保持一维 (N,)
-            dynamic_scale = torch.clamp(cmd_norm / 0.5, 0.0, 1.0)
-            
-            scale_1 = self.cfg.rewards.target_joint_pos_scale
-            scale_2 = 2 * scale_1
+        # ================= 1. 核心波形逻辑 (移植自 Old Logic) =================
+        # 原始逻辑：使用单一 sin_pos，左右腿分别 +/- 0.5 的偏移
+        sin_pos = torch.sin(2 * torch.pi * phase)
+        
+        # clone() - 0.5 / + 0.5
+        sin_pos_l = sin_pos - 0.5
+        sin_pos_r = sin_pos + 0.5
 
-            # 初始化
-            self.ref_dof_pos = self.default_dof_pos.clone()
+        # ================= 2. 动态缩放 (保持新版逻辑) =================
+        # 这部分逻辑很好，建议保留。如果直接用旧版的固定 scale，慢速走容易蹭地。
+        cmd_norm = torch.norm(self.commands[:, :2], dim=1) 
+        
+        # 动态调整幅度：基础 0.3 + 速度因子
+        dynamic_scale = 0.3 + 0.7 * torch.clamp(cmd_norm / 0.5, 0.0, 1.0)
+        
+        # 静止处理
+        is_moving = (cmd_norm > 0.01).float() 
+        dynamic_scale = dynamic_scale * is_moving
+        
+        # 基础缩放系数
+        scale_1 = self.cfg.rewards.target_joint_pos_scale
+        scale_2 = 2 * scale_1
 
-            # --- 左腿 ---
-            swing_mask_l = sin_l > 0
-            # 【修复点 2】所有运算保持一维 (M,)
-            # sin_l[mask] 是 (M,)，dynamic_scale[mask] 也是 (M,)
-            amp_l = sin_l[swing_mask_l] * dynamic_scale[swing_mask_l]
-            
-            self.ref_dof_pos[swing_mask_l, 0] += self.cfg.rewards.ref_pos_dir[0] * amp_l * scale_1
-            self.ref_dof_pos[swing_mask_l, 3] += self.cfg.rewards.ref_pos_dir[1] * amp_l * scale_2
-            self.ref_dof_pos[swing_mask_l, 4] += self.cfg.rewards.ref_pos_dir[2] * amp_l * scale_1
+        # 初始化为默认姿态
+        self.ref_dof_pos = self.default_dof_pos.clone()
 
-            # --- 右腿 ---
-            swing_mask_r = sin_r > 0
-            # 【修复点 3】同上，保持一维
-            amp_r = sin_r[swing_mask_r] * dynamic_scale[swing_mask_r]
+        # ================= 3. 应用相位逻辑 (移植自 Old Logic) =================
+        
+        # --- 左腿 (Left Leg) ---
+        # 旧逻辑：sin_pos_l <= 0 时生效，否则为 0
+        # 使用 torch.clamp 实现: clamp(x, max=0) 会保留负数，将正数变为0
+        val_l = torch.clamp(sin_pos_l, max=0.0)
+        
+        # 乘以动态缩放系数 (注意 val_l 是负数，保持其符号)
+        # 维度处理: val_l 是 (N,), dynamic_scale 是 (N,), 需要 unsqueeze 匹配
+        scaled_l = val_l * dynamic_scale
+        
+        # Apply to Left (indices 0, 3, 4)
+        self.ref_dof_pos[:, 0] += self.cfg.rewards.ref_pos_dir[0] * scaled_l * scale_1
+        self.ref_dof_pos[:, 3] += self.cfg.rewards.ref_pos_dir[1] * scaled_l * scale_2
+        self.ref_dof_pos[:, 4] += self.cfg.rewards.ref_pos_dir[2] * scaled_l * scale_1
 
-            self.ref_dof_pos[swing_mask_r, 6] += self.cfg.rewards.ref_pos_dir[3] * amp_r * scale_1
-            self.ref_dof_pos[swing_mask_r, 9] += self.cfg.rewards.ref_pos_dir[4] * amp_r * scale_2
-            self.ref_dof_pos[swing_mask_r, 10]+= self.cfg.rewards.ref_pos_dir[5] * amp_r * scale_1
+        # --- 右腿 (Right Leg) ---
+        # 旧逻辑：sin_pos_r >= 0 时生效，否则为 0
+        # 使用 torch.clamp 实现: clamp(x, min=0) 会保留正数，将负数变为0
+        val_r = torch.clamp(sin_pos_r, min=0.0)
+        
+        # 乘以动态缩放系数
+        scaled_r = val_r * dynamic_scale
+        
+        # Apply to Right (indices 6, 9, 10)
+        self.ref_dof_pos[:, 6] += self.cfg.rewards.ref_pos_dir[3] * scaled_r * scale_1
+        self.ref_dof_pos[:, 9] += self.cfg.rewards.ref_pos_dir[4] * scaled_r * scale_2
+        self.ref_dof_pos[:, 10]+= self.cfg.rewards.ref_pos_dir[5] * scaled_r * scale_1
 
-            # --- 双腿支撑 ---
-            double_support = (torch.abs(sin_l) < 0.1)
-            self.ref_dof_pos[double_support] = self.default_dof_pos[double_support]
+        # ================= 4. 双腿支撑处理 (可选) =================
+        # 旧逻辑中注释掉了这部分，但如果您需要防止过零点抖动，可以保留下面这行：
+        # 这里使用 sin_pos (原始正弦) 作为判断基准，接近 0 时强制回正
+        double_support = (torch.abs(sin_pos) < 0.1)
+        self.ref_dof_pos[double_support] = self.default_dof_pos[double_support]
         
 # ================================================ Terrian ================================================== #
         

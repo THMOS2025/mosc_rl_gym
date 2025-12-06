@@ -1,30 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # 
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this
-# list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-# this list of conditions and the following disclaimer in the documentation
-# and/or other materials provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its
-# contributors may be used to endorse or promote products derived from
-# this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
 # Copyright (c) 2024 Beijing RobotEra TECHNOLOGY CO.,LTD. All rights reserved.
 
 import os
@@ -39,8 +14,9 @@ from humanoid import LEGGED_GYM_ROOT_DIR
 import torch
 from datetime import datetime
 import time
+
 USD_JOINT_NAMES = ['b_Lh','Lh_Ll','Ll_Ll1','Ll1_Ll2','Ll2_La','La_Lf', 
-                'b_Rh','Rh_Rl','Rl_Rl1','Rl1_Rl2','Rl2_Ra','Ra_Rf']
+                 'b_Rh','Rh_Rl','Rl_Rl1','Rl1_Rl2','Rl2_Ra','Ra_Rf']
 
 
 class Data_log:
@@ -122,7 +98,6 @@ if REC:
     data_rec = Data_log()
 
 
-
 def quaternion_to_euler_array(quat):
     # Ensure quaternion is in the correct format [x, y, z, w]
     x, y, z, w = quat
@@ -175,11 +150,28 @@ def run_mujoco(policy, cfg):
     Run the Mujoco simulation using the provided policy and configuration.
     """
     model = mujoco.MjModel.from_xml_path(cfg.sim_config.mujoco_model_path)
-    print(model.body_mass)
     model.opt.timestep = cfg.sim_config.dt
     data = mujoco.MjData(model)
+    
+    # --- [新增功能 1] 输出每个部件的质量 ---
+    print("\n" + "="*40)
+    print(f"{'Body Name':<25} | {'Mass (kg)':<10}")
+    print("-" * 40)
+    total_mass = 0.0
+    for i in range(model.nbody):
+        # 获取 Body 名称 (mujoco 2.x+ 推荐方式)
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, i)
+        if name is None: name = f"body_{i}"
+        mass = model.body_mass[i]
+        total_mass += mass
+        print(f"{name:<25} | {mass:.4f}")
+    print("-" * 40)
+    print(f"{'TOTAL MASS':<25} | {total_mass:.4f}")
+    print("="*40 + "\n")
+    # -----------------------------------
+
     actuator_names = [model.actuator(i).name for i in range(model.nu)]
-    print(actuator_names)
+    # print(actuator_names) # 可选：打印执行器名称
 
     # 设置 qpos 中的初始关节值
     for joint_name, value in cfg.robot_config.init_joint_pos.items():
@@ -195,14 +187,10 @@ def run_mujoco(policy, cfg):
 
     viewer = mujoco_viewer.MujocoViewer(model, data)
 
-    # --- [新增] 保存初始的基座位置和姿态，用于预热期锁定 ---
-    # data.qpos 的前7位通常是自由关节 (root): 3个位置(x,y,z) + 4个四元数(w,x,y,z)
-    init_qpos = data.qpos.copy()
-    init_qvel = data.qvel.copy()
-
-    target_q = np.zeros((cfg.env.num_actions), dtype=np.double)
+    # 变量初始化
+    target_q = action_offset.copy() # 初始目标设为默认姿态
     action = np.zeros((cfg.env.num_actions), dtype=np.double)
-    last_target_q = action_offset.copy()
+    last_target_q = action_offset.copy() # 滤波器初始状态
 
     hist_obs = deque()
     for _ in range(cfg.env.frame_stack):
@@ -217,9 +205,14 @@ def run_mujoco(policy, cfg):
     if REC:
         global data_rec
 
-    # 定义预热步数 (1.0秒)
-    warmup_steps = int(1.0 / cfg.sim_config.dt)
-    print(f"Starting warmup for {warmup_steps} steps ({1.0} seconds)...")
+    # --- [新增功能 2] 预热开关逻辑 ---
+    if cfg.sim_config.use_warmup:
+        warmup_steps = int(1.0 / cfg.sim_config.dt)
+        print(f"Warmup ENABLED. Starting warmup for {warmup_steps} steps ({1.0} seconds)...")
+    else:
+        warmup_steps = 0
+        print("Warmup DISABLED. Starting policy immediately...")
+    # -------------------------------
 
     for _step in tqdm(range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)), desc="Simulating..."):
 
@@ -228,12 +221,13 @@ def run_mujoco(policy, cfg):
         q = q[-cfg.env.num_actions:] 
         dq = dq[-cfg.env.num_actions:]
 
-        # 1000hz -> 50hz
+        # 1000hz -> 50hz Control Loop
         if count_lowlevel % cfg.sim_config.decimation == 0:
             eu_ang = quaternion_to_euler_array(quat)
             eu_ang[eu_ang > math.pi] -= 2 * math.pi
             eu_ang[:3] *= 1
             
+            # --- 构建 Observation ---
             obs_parts = []
             obs_parts.append(np.array([math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time)])) 
             obs_parts.append(np.array([math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time)]))
@@ -242,39 +236,36 @@ def run_mujoco(policy, cfg):
             obs_parts.append(np.array([cmd.az]))
             obs_parts.append((q - action_offset) * cfg.normalization.obs_scales.dof_pos)
             obs_parts.append(dq * cfg.normalization.obs_scales.dof_vel)
-            obs_parts.append(action)
+            obs_parts.append(action) # 包含上一次的动作
             obs_parts.append(omega_base)
             obs_parts.append(eu_ang) 
             obs = np.expand_dims(np.concatenate(obs_parts, axis=-1), axis=0).astype(np.float32)
 
             obs = np.clip(obs, -cfg.normalization.clip_observations, cfg.normalization.clip_observations)
+            
+            # 更新历史 buffer
             hist_obs.append(obs)
             hist_obs.popleft()
 
+            # --- 动作决策逻辑 ---
             if _step < warmup_steps:
-                # --- [修改] 预热期：锁定机器人 + 动作归零 ---
-                
-                # 1. 强制重置基座位置和姿态 (God Hand Mode)
-                data.qpos[:7] = init_qpos[:7]
-                data.qvel[:] = 0.0 # 杀死所有动量
-                
-                # 2. 动作归零 (让PD维持初始姿态)
+                # 预热期：动作归零，保持默认姿态，让物理引擎处理重力沉降
                 action[:] = 0.0
-                target_q = action_offset.copy()
             else:
-                # 正式阶段
+                # 正式阶段：使用策略网络
                 policy_input = np.zeros([1, cfg.env.num_observations], dtype=np.float32)
                 for i in range(cfg.env.frame_stack):
                     policy_input[0, i * cfg.env.num_single_obs : (i + 1) * cfg.env.num_single_obs] = hist_obs[i][0, :]
 
                 action[:] = policy(torch.tensor(policy_input))[0].detach().numpy()
                 action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)  
-                
-                target_q = action * cfg.control.action_scale + action_offset 
             
-            # Low-pass filter
-            alpha = 0.8
-            target_q = alpha * target_q + (1 - alpha) * last_target_q
+            # 计算目标位置 (Raw Target)
+            raw_target_q = action * cfg.control.action_scale + action_offset 
+            
+            # Low-pass filter (在预热期和正式期都运行，保证平滑)
+            alpha = 0.99
+            target_q = alpha * raw_target_q + (1 - alpha) * last_target_q
             last_target_q = target_q.copy()
             
             if REC:
@@ -300,9 +291,8 @@ def run_mujoco(policy, cfg):
     viewer.close()
 
 
-
 class cmd:
-    vx = 0.3
+    vx = 0.0
     vy = 0.0
     az = 0.0
 
@@ -330,35 +320,23 @@ class Sim2simCfg():
         sim_duration = 2000 * 0.01
         dt = 0.001
         decimation = 20
+        # --- [新增] 预热开关 ---
+        use_warmup = False
+        # ---------------------
 
         
     class rewards:
-        cycle_time = 0.8#0.60# sec
+        cycle_time = 0.80#0.60# sec
     
     class robot_config:
         name_list = USD_JOINT_NAMES
         
-        kps = np.array([300.0, 300.0,45.0, 50.0, 50.0, 7.0,
-                        300.0, 300.0,45.0, 50.0, 50.0, 7.0], dtype=np.double) 
+        kps = np.array([100.0, 100.0,100.0, 100.0, 50.0, 7.0,
+                        100.0, 100.0,100.0, 100.0, 50.0, 7.0], dtype=np.double) 
 
-        kds = np.array([20.0, 20.0, 3.0, 3.0,1.5,0.3,
-                        20.0, 20.0, 3.0, 3.0,1.5,0.3], dtype=np.double) 
-        
-        # kps = np.array([100.0, 100.0,100.0, 100.0, 50.0, 24.0,
-        #                 100.0, 100.0,100.0, 100.0, 50.0, 24.0], dtype=np.double) 
+        kds = np.array([12.0, 12.0, 3.0, 2.0,2,0.3,
+                        12.0, 12.0, 3.0, 2.0,2,0.3], dtype=np.double) 
 
-        # kds = np.array([2.0, 2.0, 2.0, 2.0,1.5,0.3,
-        #                 2.0, 2.0, 2.0, 2.0,1.5,0.3], dtype=np.double) 
-
-
-        # kps = np.array([10.0, 10.0,10.0, 10.0, 10, 10.0,
-        #                 10.0, 10.0,10.0, 10.0, 10, 10.0], dtype=np.double) 
-        # kds = np.array([2.0, 2.0, 2.0, 2.0, 2.0, 2.0,
-        #                 2.0, 2.0, 2.0, 2.0, 2.0, 2.0], dtype=np.double)
-        # kds = np.array([0.263, 0.263, 0.263, 0.263, 0.0495,0.0495,
-        #                 0.263, 0.263, 0.263, 0.263, 0.0495,0.0495], dtype=np.double) 
-        # kps = np.array([100, 100, 100, 100, 50, 50, 100, 100, 100, 100, 50, 50])
-        # kds = np.array([0.6, 0.6, 0.6, 0.6, 0.05, 0.05, 0.6, 0.6, 0.6, 0.6, 0.05, 0.05]) 
         init_joint_pos = {
             "b_Lh": 0.3,
             "Ll1_Ll2": -0.6,
@@ -368,16 +346,6 @@ class Sim2simCfg():
             "Rl1_Rl2": 0.6,
             "Rl2_Ra": -0.3,
             }
-        
-        # init_joint_pos = {
-        #     "b_Lh": 0,
-        #     "Ll1_Ll2": 0,
-        #     "Ll2_La": 0,
-
-        #     "b_Rh": 0,
-        #     "Rl1_Rl2": 0,
-        #     "Rl2_Ra": 0,
-        #     }
         
         if_joint_command_offset = True
         

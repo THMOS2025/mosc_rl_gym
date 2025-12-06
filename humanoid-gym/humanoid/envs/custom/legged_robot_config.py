@@ -150,19 +150,61 @@ class LeggedRobotCfg(BaseConfig):
 
     class control:
         # PD Drive parameters:
-        stiffness = {'b_Lh':300.0, 'b_Rh':300.0,
-                     'Lh_Ll':300.0, 'Rh_Rl':300,
-                     'Ll_Ll1':45.0, 'Rl_Rl1':45.0, 
-                     'Ll1_Ll2':50.0, 'Rl1_Rl2':50.0, 
+        # stiffness = {'b_Lh':300.0, 'b_Rh':300.0,
+        #              'Lh_Ll':300.0, 'Rh_Rl':300,
+        #              'Ll_Ll1':45.0, 'Rl_Rl1':45.0, 
+        #              'Ll1_Ll2':50.0, 'Rl1_Rl2':50.0, 
+        #              'Ll2_La':50.0, 'Rl2_Ra':50.0, 
+        #              'La_Lf':7.0, 'Ra_Rf':7.0}
+                     
+        # damping = {'b_Lh':20.0, 'b_Rh':20.0,
+        #            'Lh_Ll':20.0, 'Rh_Rl':20.0,
+        #            'Ll_Ll1':3.0, 'Rl_Rl1':3.0, 
+        #            'Ll1_Ll2':3.0, 'Rl1_Rl2':3.0, 
+        #            'Ll2_La':1.5, 'Rl2_Ra':1.5, 
+        #            'La_Lf':0.3, 'Ra_Rf':0.3}
+        
+        # stiffness = {'b_Lh':100.0, 'b_Rh':100.0,
+        #              'Lh_Ll':100.0, 'Rh_Rl':100,
+        #              'Ll_Ll1':100.0, 'Rl_Rl1':100.0, 
+        #              'Ll1_Ll2':70.0, 'Rl1_Rl2':70.0, 
+        #              'Ll2_La':50.0, 'Rl2_Ra':50.0, 
+        #              'La_Lf':7.0, 'Ra_Rf':7.0}
+                     
+        # damping = {'b_Lh':12.0, 'b_Rh':12.0,
+        #            'Lh_Ll':12.0, 'Rh_Rl':12.0,
+        #            'Ll_Ll1':3.0, 'Rl_Rl1':3.0, 
+        #            'Ll1_Ll2':3.5, 'Rl1_Rl2':3.5, 
+        #            'Ll2_La':2, 'Rl2_Ra':2, 
+        #            'La_Lf':0.3, 'Ra_Rf':0.3}
+        
+        stiffness = {'b_Lh':100.0, 'b_Rh':100.0,
+                     'Lh_Ll':100.0, 'Rh_Rl':100,
+                     'Ll_Ll1':100.0, 'Rl_Rl1':100.0, 
+                     'Ll1_Ll2':100.0, 'Rl1_Rl2':100.0, 
                      'Ll2_La':50.0, 'Rl2_Ra':50.0, 
                      'La_Lf':7.0, 'Ra_Rf':7.0}
                      
-        damping = {'b_Lh':20.0, 'b_Rh':20.0,
-                   'Lh_Ll':20.0, 'Rh_Rl':20.0,
+        damping = {'b_Lh':12.0, 'b_Rh':12.0,
+                   'Lh_Ll':12.0, 'Rh_Rl':12.0,
                    'Ll_Ll1':3.0, 'Rl_Rl1':3.0, 
-                   'Ll1_Ll2':3.0, 'Rl1_Rl2':3.0, 
-                   'Ll2_La':1.5, 'Rl2_Ra':1.5, 
+                   'Ll1_Ll2':2.0, 'Rl1_Rl2':2.0, 
+                   'Ll2_La':2, 'Rl2_Ra':2, 
                    'La_Lf':0.3, 'Ra_Rf':0.3}
+        
+        # stiffness = {'b_Lh':100, 'b_Rh':100,
+        #              'Lh_Ll':100, 'Rh_Rl':100,
+        #              'Ll_Ll1':100, 'Rl_Rl1':100, 
+        #              'Ll1_Ll2':100, 'Rl1_Rl2':100, 
+        #              'Ll2_La':50, 'Rl2_Ra':50, 
+        #              'La_Lf':25, 'Ra_Rf':25}
+                     
+        # damping = {'b_Lh':2.0, 'b_Rh':2.0,
+        #            'Lh_Ll':2.0, 'Rh_Rl':2.0,
+        #            'Ll_Ll1':2.0, 'Rl_Rl1':2.0, 
+        #            'Ll1_Ll2':2.0, 'Rl1_Rl2':2.0, 
+        #            'Ll2_La':1.5, 'Rl2_Ra':1.5, 
+        #            'La_Lf':0.5, 'Ra_Rf':0.5}
 
         action_scale = 0.25
         decimation = 10 # 50hz
@@ -215,7 +257,7 @@ class LeggedRobotCfg(BaseConfig):
                 
         push_robots = True
         push_prop = 1
-        push_interval_s = 5.0
+        push_interval_s = 12.0
         max_push_vel_xy = 1.0
         max_push_ang_vel = 0.6 * 1.2   
 
@@ -228,22 +270,23 @@ class LeggedRobotCfg(BaseConfig):
         curriculum_offset = 0.01
         curriculum_decay = 0.9999
         
-        base_height_target = 0.36
+        base_height_target = 0.51
         # --- MODIFIED (CRITICAL): Set to False to enable penalties. If True, all negative rewards are clipped to 0. ---
-        only_positive_rewards = False 
+        only_positive_rewards = False
         tracking_sigma = 0.25 
+        orientation_sigma = 0.25
         
         cycle_time = 0.55                  
-        double_stand_phase = 0.05          
-        target_joint_pos_scale = 0.16      
+        double_stand_phase = 0.07          
+        target_joint_pos_scale = 0.25      
         ref_pos_dir = [1., 1., 1., 1., 1., 1.] 
 
         class scales:
             termination = -200.0          
-            tracking_lin_vel = 1.5
+            tracking_lin_vel = 4.5
             tracking_ang_vel = 0.8        
             # --- MODIFIED (CRITICAL): Changed from positive to negative to correctly penalize tilting. ---
-            orientation = -1.0            
+            orientation = 2.0            
             lin_vel_z = -0.5              
             ang_vel_xy = -0.05            
             feet_air_time = 1.0           
@@ -254,7 +297,8 @@ class LeggedRobotCfg(BaseConfig):
             dof_acc = -2.5e-7             
             action_rate = -0.01           
             dof_pos_limits = -10.0
-            joint_pos = 0.2        
+            joint_pos = 10.0       
+            # joint_pos = 0.0        
 
     class normalization:
         class obs_scales:
