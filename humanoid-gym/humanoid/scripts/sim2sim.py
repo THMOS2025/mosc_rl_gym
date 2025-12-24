@@ -227,6 +227,9 @@ def run_mujoco(policy, cfg):
             eu_ang[eu_ang > math.pi] -= 2 * math.pi
             eu_ang[:3] *= 1
             
+            # eu_ang = np.zeros_like(eu_ang)  # zero euler angles
+            # omega_base = np.zeros_like(omega_base)  # zero angular velocity
+            
             # --- 构建 Observation ---
             obs_parts = []
             obs_parts.append(np.array([math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / cfg.rewards.cycle_time)])) 
@@ -321,7 +324,7 @@ class Sim2simCfg():
         dt = 0.001
         decimation = 20
         # --- [新增] 预热开关 ---
-        use_warmup = False
+        use_warmup = True
         # ---------------------
 
         

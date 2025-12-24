@@ -16,7 +16,7 @@ terrain:
 commands:
   ranges:
     lin_vel_x: [-1.0, 1.5]   # min max [m/s]
-    lin_vel_y: [-1.0, 1.0]   # min max [m/s]
+    lin_vel_y: [-0.5, 0.5]   # min max [m/s]
     ang_vel_z: [-1.0, 1.0]   # min max [rad/s]
 
 # domain_rand:
@@ -64,6 +64,9 @@ rewards:
 noise:
   add_noise: true
   noise_level: 0.6
+  noise_scales:
+    ang_vel: 1.0
+    quat: 1.0
 
 viewer:
   debug_viz: false
@@ -74,6 +77,6 @@ runner:
   save_interval: 400
   run_name: ''
   resume: false
-  load_run: 'Nov19_16-33-04_v5_t4'
+  load_run: 'Dec06_19-19-14_v7_t4'
   checkpoint: 2000
   resume_path: null

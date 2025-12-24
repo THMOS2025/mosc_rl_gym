@@ -126,7 +126,7 @@ class LeggedRobotCfg(BaseConfig):
             dof_vel = 1.5
             ang_vel = 0.3
             lin_vel = 0.1
-            quat = 0.1
+            quat = 0.5
 
     class init_state:
         pos = [0.0, 0.0, 0.51]
@@ -297,7 +297,7 @@ class LeggedRobotCfg(BaseConfig):
             dof_acc = -2.5e-7             
             action_rate = -0.01           
             dof_pos_limits = -10.0
-            joint_pos = 10.0       
+            joint_pos = 5.0       
             # joint_pos = 0.0        
 
     class normalization:

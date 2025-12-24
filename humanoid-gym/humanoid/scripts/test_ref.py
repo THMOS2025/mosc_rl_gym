@@ -93,15 +93,20 @@ def compute_old_ref_state(current_time, cmd, default_pos, cfg):
 # =========================================================================
 def compute_new_ref_state(current_time, cmd, default_pos, cfg):
     """
-    新逻辑：支撑相髋关节后摆，全程连续运动
+    新逻辑：支撑相髋关节后摆，全程连续运动 + 双支撑相位复位
     """
+    # 归一化相位 [0, 1)
     phase = (current_time % cfg.cycle_time) / cfg.cycle_time
+    
+    # 定义左右腿相位 (相差 0.5)
     phase_l = phase
     phase_r = phase + 0.5
+    
+    # 计算正弦波
     sin_l = np.sin(2 * np.pi * phase_l)
     sin_r = np.sin(2 * np.pi * phase_r)
     
-    # 简单的动态缩放模拟 (假设有速度)
+    # 简单的动态缩放模拟
     cmd_norm = np.sqrt(cmd.vx**2 + cmd.vy**2)
     dynamic_scale = 0.3 + 1.5 * np.clip(cmd_norm / 0.5, 0.0, 1.0)
     is_moving = 1.0 if cmd_norm > 0.01 else 0.0
@@ -115,7 +120,7 @@ def compute_new_ref_state(current_time, cmd, default_pos, cfg):
     # --- Left Leg ---
     # Hip: 全程跟随正弦波 (摆动向前，支撑向后)
     ref_dof_pos[0] += cfg.ref_pos_dir[0] * (-sin_l) * dynamic_scale * scale_1
-    # Knee/Ankle: 只在摆动相动
+    # Knee/Ankle: 只在摆动相 (sin_l < 0) 抬起
     if sin_l < 0:
         amp_l = np.abs(sin_l) * dynamic_scale
         ref_dof_pos[3] += cfg.ref_pos_dir[1] * amp_l * scale_2
@@ -124,14 +129,21 @@ def compute_new_ref_state(current_time, cmd, default_pos, cfg):
     # --- Right Leg ---
     # Hip: 全程跟随正弦波
     ref_dof_pos[6] += cfg.ref_pos_dir[3] * (-sin_r) * dynamic_scale * scale_1
-    # Knee/Ankle: 只在摆动相动
+    # Knee/Ankle: 只在摆动相 (sin_r < 0) 抬起
     if sin_r < 0:
         amp_r = np.abs(sin_r) * dynamic_scale
         ref_dof_pos[9] += cfg.ref_pos_dir[4] * amp_r * scale_2
         ref_dof_pos[10]+= cfg.ref_pos_dir[5] * amp_r * scale_1
 
-    # 去掉 Double Support 的强制归零，保持 Hip 连续性
-    
+    # =======================================================
+    # === ADDED: Double Support Logic (Clone from Old) ===
+    # =======================================================
+    # 当正弦波接近 0 时 (即相位切换瞬间)，强制进入双支撑
+    # 此时左右腿应该都回到默认姿态 (Default Stance)
+    # 注意：这里我们用 sin_l 作为基准，因为 sin_r 和它同步过零
+    if np.abs(sin_l) < cfg.double_stand_phase:
+        ref_dof_pos = default_pos.copy()
+
     return ref_dof_pos
 
 # =========================================================================

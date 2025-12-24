@@ -964,7 +964,7 @@ class LeggedRobot(BaseTask):
         # ================= 4. 双腿支撑处理 (可选) =================
         # 旧逻辑中注释掉了这部分，但如果您需要防止过零点抖动，可以保留下面这行：
         # 这里使用 sin_pos (原始正弦) 作为判断基准，接近 0 时强制回正
-        double_support = (torch.abs(sin_pos) < 0.1)
+        double_support = (torch.abs(sin_pos) < self.cfg.rewards.double_stand_phase)
         self.ref_dof_pos[double_support] = self.default_dof_pos[double_support]
         
 # ================================================ Terrian ================================================== #
